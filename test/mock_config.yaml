@@ -1,0 +1,4 @@
+amplitude: 1.0
+epochs: 10
+frequency: 2.0
+num_points: 100

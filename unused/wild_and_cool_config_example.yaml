@@ -1,0 +1,63 @@
+exp_name: "exp1_rpinn1"
+
+train_domain: "2D_Rectangle"
+domain_config:
+  x_min: -1.0
+  x_max: 1.0
+  y_min: -1.0
+  y_max: 1.0
+
+pde:
+  name: "Wave Equation"
+  equation: "u_tt - c^2 * (u_xx + u_yy) = 0"
+  c: 1.0
+
+model:
+  architecture: "PINN"
+  layers: 4
+  neurons: 32
+  activation: "tanh"
+  output_activation: "linear"
+  use_bias: true
+
+training:
+  epochs: 50000
+  batch_size: 32
+  optimizer: "Adam"
+  learning_rate: 0.001
+  scheduler:
+    use: true
+    scheduler_type: "StepLR"
+    step_size: 10000
+    gamma: 0.5
+  loss_weights:
+    pde: 1.0
+    initial_conditions: 10.0
+    boundary_conditions: 10.0
+
+data:
+  num_points: 5000
+  num_initial_points: 1000
+  num_boundary_points: 500
+
+validation:
+  use: false
+  num_points: 1000
+
+sampling:
+  pde_sampling: "uniform"
+  ic_sampling: "uniform"
+  bc_sampling: "uniform"
+
+logging:
+  use_tensorboard: true
+  use_wandb: true
+  log_frequency: 100
+  checkpoint_frequency: 1000
+
+physics_informed_regularization:
+  use: true
+  method: "collocation"
+  collocation_density: 1.0
+  gradient_penalty_weight: 0.01
+  higher_order_terms: false

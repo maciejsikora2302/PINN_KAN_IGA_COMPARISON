@@ -1,0 +1,64 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+venv/
+.venv/
+env/
+.env/
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Whole output
+output/*
+
+# Output datafiles (output/ and outputs/)
+output/**/*.npz
+output/**/*.npy
+output/**/*.pt
+output/**/*.pth
+output/**/*.mat
+output/**/*.csv
+output/**/*.dat
+output/**/*.h5
+output/**/*.hdf5
+output/**/*.pkl
+output/**/*.pickle
+output/**/*.zip
+output/**/*.tar
+output/**/*.gz
+output/**/*.parquet
+
+outputs/**/*.npz
+outputs/**/*.npy
+outputs/**/*.pt
+outputs/**/*.pth
+outputs/**/*.mat
+outputs/**/*.csv
+outputs/**/*.dat
+outputs/**/*.h5
+outputs/**/*.hdf5
+outputs/**/*.pkl
+outputs/**/*.pickle
+outputs/**/*.zip
+outputs/**/*.tar
+outputs/**/*.gz
+outputs/**/*.parquet
+
+# Generic data files in output/ and outputs/
+output/*.zip
+output/*.npz
+output/*.npy
+outputs/*.zip
+outputs/*.npz
+outputs/*.npy
+
+# OS generated files
+.DS_Store
+Thumbs.db
