@@ -18,6 +18,9 @@ env/
 # Whole output
 output/*
 
+# Moved old outputs
+unused/old_and_mixed_outputs/*
+
 # Output datafiles (output/ and outputs/)
 output/**/*.npz
 output/**/*.npy
