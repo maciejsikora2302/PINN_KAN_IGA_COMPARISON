@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from model import ExperimentInterface
 from config import KANConfig
 from src.problems import get_problem, BasePDEProblem
-from src.samplers import UniformGridSampler
+from src.samplers import get_sampler
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -257,7 +257,10 @@ class KANExperiment(ExperimentInterface):
         if not self.config or not self.problem:
             raise ValueError("Configuration or PDE problem has not been loaded.")
 
-        sampler = UniformGridSampler()
+        sampler = get_sampler(
+            getattr(self.config, "SAMPLER_TYPE", "uniform"),
+            getattr(self.config, "SAMPLER_GAMMA", 3.0)
+        )
         self.x_grid, self.t_grid = sampler.sample_points(
             self.config.N_POINTS_X,
             self.config.N_POINTS_T,
@@ -347,6 +350,15 @@ class KANExperiment(ExperimentInterface):
 
         print()
         self.model.eval()
+        with torch.no_grad():
+            z_pred_tensor = self.model(self.x_grid, self.t_grid).flatten()
+            z_shift_tensor = self.problem.shift_function(self.x_grid, self.t_grid).flatten()
+            z_num_tensor = z_pred_tensor + z_shift_tensor
+            z_exact_tensor = self.problem.exact_solution(self.x_grid, self.t_grid).flatten()
+            err_tensor = z_exact_tensor - z_num_tensor
+            self.final_l2_error = float(torch.sqrt(torch.mean(err_tensor ** 2)).item())
+            self.final_linf_error = float(torch.max(torch.abs(err_tensor)).item())
+
         self.final_loss = float(compute_interior_loss(self.model, self.x_grid, self.t_grid).item())
         self.final_interior_loss = self.final_loss
         self.final_h1_error = self.h1_error_history[-1] if self.h1_error_history else None
@@ -396,6 +408,9 @@ class KANExperiment(ExperimentInterface):
             final_interior_loss=np.array(self.final_interior_loss),
             loss_history=np.array(self.loss_history),
             h1_error_history=np.array(self.h1_error_history),
+            final_h1_error=np.array(self.final_h1_error if self.final_h1_error is not None else 0.0),
+            final_l2_error=np.array(self.final_l2_error if getattr(self, "final_l2_error", None) is not None else 0.0),
+            final_linf_error=np.array(self.final_linf_error if getattr(self, "final_linf_error", None) is not None else 0.0),
             x=self.x_grid.flatten().detach().cpu().numpy(),
             t=self.t_grid.flatten().detach().cpu().numpy(),
             z_pred=z_pred,

@@ -1,0 +1,40 @@
+global:
+  EXAMPLE: 3
+  EPSILON: 0.01
+  LENGTH: 1.0
+  TOTAL_TIME: 1.0
+  N_POINTS_X: 100
+  N_POINTS_T: 100
+  LAYERS: 2
+  NEURONS_PER_LAYER: 100
+  KAN_LAYERS: 2
+  KAN_NEURONS_PER_LAYER: 10
+  KAN_SPLINE_TYPE: "nurbs"
+  ACTIVATION: "tanh"
+  EPOCHS: 40000
+  LEARNING_RATE: 0.0005
+  IGA_DEGREE: 3
+  IGA_ELEMENTS: 32
+  H1_CALC_EVERY: 100
+
+sweep:
+  RPINN: [0, 1]
+  SAMPLER_TYPE: ["uniform", "boundary_layer"]
+
+scenarios:
+  - name: "sampling_uniform_mesh"
+    SAMPLER_GAMMA: 3.0
+    IGA_METHOD: "supg"
+    IGA_MESH_TYPE: "uniform"
+
+  - name: "sampling_adaptive_mesh"
+    SAMPLER_GAMMA: 3.0
+    IGA_METHOD: "supg"
+    IGA_MESH_TYPE: "adaptive"
+    IGA_ADAPTIVE_GAMMA: 3.0
+
+  - name: "sampling_adaptive_igrm"
+    SAMPLER_GAMMA: 3.0
+    IGA_METHOD: "igrm"
+    IGA_MESH_TYPE: "adaptive"
+    IGA_ADAPTIVE_GAMMA: 3.0

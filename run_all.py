@@ -5,6 +5,17 @@ import time
 import re
 import argparse
 
+def natural_sort_key(filename):
+    if filename == "test_config.yaml":
+        return (0, 0, filename)
+    match = re.match(r'^exp(\d+)', filename)
+    if match:
+        return (1, int(match.group(1)), filename)
+    return (2, 0, filename)
+
+def natural_sort(files):
+    return sorted(files, key=natural_sort_key)
+
 def main():
     config_dir = "training_config"
     if not os.path.exists(config_dir):
@@ -21,15 +32,7 @@ def main():
         if (f.endswith(".yaml") or f.endswith(".yml")) and f not in ("common.yaml", "original.yaml"):
             configs.append(f)
     
-    def natural_sort_key(filename):
-        if filename == "test_config.yaml":
-            return (0, 0, filename)
-        match = re.match(r'^exp(\d+)', filename)
-        if match:
-            return (1, int(match.group(1)), filename)
-        return (2, 0, filename)
-
-    configs.sort(key=natural_sort_key)
+    configs = natural_sort(configs)
 
     if not configs:
         print(f"No configuration files found in '{config_dir}' (excluding common.yaml and original.yaml).")

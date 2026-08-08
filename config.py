@@ -85,6 +85,8 @@ class SharedConfig(Config):
         self.KAN_SPLINE_TYPE = "nurbs"
         self.KAN_GRID_SIZE = 5
         self.KAN_SPLINE_ORDER = 3
+        self.SAMPLER_TYPE = "uniform"
+        self.SAMPLER_GAMMA = 3.0
 
     def assign_from_args(self, args):
         # Assign arguments to CONFIG namespace
@@ -114,6 +116,8 @@ class SharedConfig(Config):
         self.KAN_SPLINE_TYPE = args.kan_spline_type if hasattr(args, 'kan_spline_type') and args.kan_spline_type is not None else self.KAN_SPLINE_TYPE
         self.KAN_GRID_SIZE = args.kan_grid_size if hasattr(args, 'kan_grid_size') and args.kan_grid_size is not None else self.KAN_GRID_SIZE
         self.KAN_SPLINE_ORDER = args.kan_spline_order if hasattr(args, 'kan_spline_order') and args.kan_spline_order is not None else self.KAN_SPLINE_ORDER
+        self.SAMPLER_TYPE = args.sampler_type if hasattr(args, 'sampler_type') and args.sampler_type is not None else self.SAMPLER_TYPE
+        self.SAMPLER_GAMMA = args.sampler_gamma if hasattr(args, 'sampler_gamma') and args.sampler_gamma is not None else self.SAMPLER_GAMMA
 
 
 class PINNConfig(SharedConfig):

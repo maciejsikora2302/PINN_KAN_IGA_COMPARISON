@@ -1,0 +1,3 @@
+SAMPLER_GAMMA: 3.0
+IGA_METHOD: supg
+SAMPLER_TYPE: boundary_layer

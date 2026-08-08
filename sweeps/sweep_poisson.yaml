@@ -1,0 +1,32 @@
+global:
+  LENGTH: 1.0
+  TOTAL_TIME: 1.0
+  N_POINTS_X: 100
+  N_POINTS_T: 100
+  LAYERS: 2
+  NEURONS_PER_LAYER: 100
+  KAN_LAYERS: 2
+  KAN_NEURONS_PER_LAYER: 10
+  KAN_SPLINE_TYPE: "nurbs"
+  KAN_GRID_SIZE: 5
+  KAN_SPLINE_ORDER: 3
+  ACTIVATION: "tanh"
+  SAMPLER_TYPE: "uniform"
+  IGA_DEGREE: 3
+  IGA_ELEMENTS: 32
+  IGA_METHOD: "standard"
+  IGA_MESH_TYPE: "uniform"
+  H1_CALC_EVERY: 100
+
+sweep:
+  RPINN: [0, 1]
+
+scenarios:
+  - name: "poisson_sin"
+    EXAMPLE: 1
+    EPOCHS: 20000
+    LEARNING_RATE: 0.001
+  - name: "poisson_exp"
+    EXAMPLE: 2
+    EPOCHS: 40000
+    LEARNING_RATE: 0.0005

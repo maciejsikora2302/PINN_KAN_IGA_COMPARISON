@@ -95,16 +95,23 @@ def main():
             "layers": pinn_solver.config.LAYERS,
             "neurons_per_layer": pinn_solver.config.NEURONS_PER_LAYER,
             "activation": str(pinn_solver.config.ACTIVATION),
+            "sampler_type": str(pinn_solver.config.SAMPLER_TYPE),
             "final_loss": float(pinn_solver.final_loss) if pinn_solver.final_loss is not None else None,
             "final_h1_error": float(pinn_solver.final_h1_error) if pinn_solver.final_h1_error is not None else None,
+            "final_l2_error": float(pinn_solver.final_l2_error) if getattr(pinn_solver, "final_l2_error", None) is not None else None,
+            "final_linf_error": float(pinn_solver.final_linf_error) if getattr(pinn_solver, "final_linf_error", None) is not None else None,
             "elapsed_seconds": elapsed_pinn
         },
         "KAN": {
             "trainable_parameters": count_parameters(kan_solver.model),
             "layers": kan_solver.config.KAN_LAYERS,
             "neurons_per_layer": kan_solver.config.KAN_NEURONS_PER_LAYER,
+            "spline_type": str(kan_solver.config.KAN_SPLINE_TYPE),
+            "sampler_type": str(kan_solver.config.SAMPLER_TYPE),
             "final_loss": float(kan_solver.final_loss) if kan_solver.final_loss is not None else None,
             "final_h1_error": float(kan_solver.final_h1_error) if kan_solver.final_h1_error is not None else None,
+            "final_l2_error": float(kan_solver.final_l2_error) if getattr(kan_solver, "final_l2_error", None) is not None else None,
+            "final_linf_error": float(kan_solver.final_linf_error) if getattr(kan_solver, "final_linf_error", None) is not None else None,
             "elapsed_seconds": elapsed_kan
         },
         "IGA": {

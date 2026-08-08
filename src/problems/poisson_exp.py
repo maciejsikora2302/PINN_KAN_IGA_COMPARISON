@@ -20,7 +20,7 @@ class PoissonExpProblem(BasePDEProblem):
         sin = torch.sin if isinstance(x, torch.Tensor) else np.sin
         pi = torch.pi if isinstance(x, torch.Tensor) else np.pi
 
-        return -exp(pi * (x - 2.0 * y)) * sin(2.0 * pi * x) * sin(pi * y)
+        return sin(2.0 * pi * x) * sin(2.0 * pi * y) * exp(pi * (x - 2.0 * y))
 
     def exact_dx(self, x: Any, y: Any) -> Any:
         exp = torch.exp if isinstance(x, torch.Tensor) else np.exp
@@ -28,9 +28,12 @@ class PoissonExpProblem(BasePDEProblem):
         cos = torch.cos if isinstance(x, torch.Tensor) else np.cos
         pi = torch.pi if isinstance(x, torch.Tensor) else np.pi
 
-        exp1 = -pi * exp(pi * (x - 2.0 * y)) * sin(pi * y)
-        sin1 = sin(2.0 * pi * x) + 2.0 * cos(2.0 * pi * x)
-        return exp1 * sin1
+        E = exp(pi * (x - 2.0 * y))
+        Sx = sin(2.0 * pi * x)
+        Cx = cos(2.0 * pi * x)
+        Sy = sin(2.0 * pi * y)
+
+        return pi * E * Sy * (2.0 * Cx + Sx)
 
     def exact_dy(self, x: Any, y: Any) -> Any:
         exp = torch.exp if isinstance(x, torch.Tensor) else np.exp
@@ -38,9 +41,12 @@ class PoissonExpProblem(BasePDEProblem):
         cos = torch.cos if isinstance(x, torch.Tensor) else np.cos
         pi = torch.pi if isinstance(x, torch.Tensor) else np.pi
 
-        exp1 = -pi * exp(pi * (x - 2.0 * y)) * sin(2.0 * pi * x)
-        sin1 = cos(pi * y) - 2.0 * sin(pi * y)
-        return exp1 * sin1
+        E = exp(pi * (x - 2.0 * y))
+        Sx = sin(2.0 * pi * x)
+        Sy = sin(2.0 * pi * y)
+        Cy = cos(2.0 * pi * y)
+
+        return 2.0 * pi * E * Sx * (Cy - Sy)
 
     def exact_dx2(self, x: Any, y: Any) -> Any:
         exp = torch.exp if isinstance(x, torch.Tensor) else np.exp
@@ -48,9 +54,12 @@ class PoissonExpProblem(BasePDEProblem):
         cos = torch.cos if isinstance(x, torch.Tensor) else np.cos
         pi = torch.pi if isinstance(x, torch.Tensor) else np.pi
 
-        exp1 = -pi * pi * exp(pi * (x - 2.0 * y)) * sin(pi * y)
-        sin1 = 4.0 * cos(2.0 * pi * x) - 3.0 * sin(2.0 * pi * x)
-        return exp1 * sin1
+        E = exp(pi * (x - 2.0 * y))
+        Sx = sin(2.0 * pi * x)
+        Cx = cos(2.0 * pi * x)
+        Sy = sin(2.0 * pi * y)
+
+        return pi * pi * E * Sy * (4.0 * Cx - 3.0 * Sx)
 
     def exact_dy2(self, x: Any, y: Any) -> Any:
         exp = torch.exp if isinstance(x, torch.Tensor) else np.exp
@@ -58,14 +67,26 @@ class PoissonExpProblem(BasePDEProblem):
         cos = torch.cos if isinstance(x, torch.Tensor) else np.cos
         pi = torch.pi if isinstance(x, torch.Tensor) else np.pi
 
-        exp1 = pi * pi * exp(pi * (x - 2.0 * y)) * sin(2.0 * pi * x)
-        sin1 = 4.0 * cos(pi * y) - 3.0 * sin(pi * y)
-        return exp1 * sin1
+        E = exp(pi * (x - 2.0 * y))
+        Sx = sin(2.0 * pi * x)
+        Cy = cos(2.0 * pi * y)
+
+        return -8.0 * pi * pi * E * Sx * Cy
 
     def rhs(self, x: Any, y: Any) -> Any:
-        f1 = self.exact_dx2(x, y)
-        f2 = self.exact_dy2(x, y)
-        return -(f1 + f2)
+        # f(x,y) = pi^2 * E * [3*Sx*Sy - 4*Cx*Sy + 8*Sx*Cy]
+        exp = torch.exp if isinstance(x, torch.Tensor) else np.exp
+        sin = torch.sin if isinstance(x, torch.Tensor) else np.sin
+        cos = torch.cos if isinstance(x, torch.Tensor) else np.cos
+        pi = torch.pi if isinstance(x, torch.Tensor) else np.pi
+
+        E = exp(pi * (x - 2.0 * y))
+        Sx = sin(2.0 * pi * x)
+        Cx = cos(2.0 * pi * x)
+        Sy = sin(2.0 * pi * y)
+        Cy = cos(2.0 * pi * y)
+
+        return pi * pi * E * (3.0 * Sx * Sy - 4.0 * Cx * Sy + 8.0 * Sx * Cy)
 
     def compute_strong_residual(self, model: Any, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         u_pred = model(x, y)

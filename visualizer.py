@@ -561,6 +561,85 @@ class Visualizer:
             plt.show()
         plt.close()
 
+    def plot_boundary_layer_slice(
+        self,
+        predictions: dict[str, dict[str, Any]],
+        example: int = 3,
+        epsilon: float = 0.01,
+        x_cut: float = 0.5,
+        title: str = "Boundary Layer Profile (Cut at x=0.5)",
+        save_path: Optional[str] = None
+    ) -> None:
+        """
+        Plots 1D cut-slice profiles along y (t) at x = x_cut.
+        Subplot 1: Full domain y in [0, 1].
+        Subplot 2: Zoom into boundary layer y in [max(0.0, 1.0 - 5*epsilon), 1.0].
+        Overlays curves for Exact solution and active solvers (PINN, KAN, IGA).
+        """
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+        t_fine = np.linspace(0.0, 1.0, 500)
+        x_fine = np.full_like(t_fine, x_cut)
+
+        from src.problems import get_problem
+        problem = get_problem(example, epsilon)
+        z_exact = problem.exact_solution(x_fine, t_fine)
+
+        ax1.plot(t_fine, z_exact, 'k--', label="Exact", linewidth=2.5)
+        ax2.plot(t_fine, z_exact, 'k--', label="Exact", linewidth=2.5)
+
+        colors = {"PINN": "tab:blue", "KAN": "tab:orange", "IGA": "tab:green"}
+
+        for name, data in predictions.items():
+            if not data or "x" not in data or "t" not in data or "z" not in data:
+                continue
+            x_arr = np.array(data["x"]).flatten()
+            t_arr = np.array(data["t"]).flatten()
+            z_arr = np.array(data["z"]).flatten()
+
+            unique_x = np.unique(x_arr)
+            closest_x = unique_x[np.argmin(np.abs(unique_x - x_cut))]
+            mask = np.isclose(x_arr, closest_x, atol=1e-2)
+
+            if not np.any(mask):
+                continue
+
+            t_slice = t_arr[mask]
+            z_slice = z_arr[mask]
+            sort_idx = np.argsort(t_slice)
+            t_slice = t_slice[sort_idx]
+            z_slice = z_slice[sort_idx]
+
+            color = colors.get(name, None)
+            ax1.plot(t_slice, z_slice, label=name, color=color, linewidth=2, alpha=0.85)
+            ax2.plot(t_slice, z_slice, label=name, color=color, linewidth=2, alpha=0.85)
+
+        ax1.set_title(f"{title} - Full Domain y in [0, 1]")
+        ax1.set_xlabel("y (advection coordinate)")
+        ax1.set_ylabel("u(x=0.5, y)")
+        ax1.grid(True, linestyle="--", alpha=0.5)
+        ax1.legend()
+
+        y_min_zoom = max(0.0, 1.0 - 5.0 * epsilon)
+        ax2.set_xlim(y_min_zoom, 1.0)
+        ax2.set_title(f"Boundary Layer Zoom y in [{y_min_zoom:.3f}, 1.0]")
+        ax2.set_xlabel("y (advection coordinate)")
+        ax2.set_ylabel("u(x=0.5, y)")
+        ax2.axhline(0.0, color="gray", linestyle=":", alpha=0.5)
+        ax2.axhline(1.0, color="gray", linestyle=":", alpha=0.5)
+        ax2.grid(True, linestyle="--", alpha=0.5)
+        ax2.legend()
+
+        plt.tight_layout()
+
+        if save_path:
+            os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"Boundary layer slice plot saved successfully to {save_path}")
+        else:
+            plt.show()
+        plt.close()
+
 
 
 

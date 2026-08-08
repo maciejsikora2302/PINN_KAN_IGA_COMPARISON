@@ -2,37 +2,44 @@ import os
 import sys
 import yaml
 import itertools
+from typing import Any, Dict
 
-def load_yaml(path):
+def load_yaml(path: str) -> Dict[str, Any]:
     if not os.path.exists(path):
         return {}
     with open(path, "r") as f:
         return yaml.safe_load(f) or {}
 
-def save_yaml(path, data):
+def save_yaml(path: str, data: Dict[str, Any]) -> None:
     with open(path, "w") as f:
         yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
 def main():
     # 1. Parse CLI arguments
     if len(sys.argv) < 2 or "-h" in sys.argv or "--help" in sys.argv:
-        print("Usage: python manage_configs.py <template_yaml_path> [-y/--force]")
+        print("Usage: python manage_configs.py <template_yaml_path> [-y/--force] [--prefix PREFIX]")
         sys.exit(1)
 
     template_path = None
     force = False
+    prefix_override = None
 
-    for arg in sys.argv[1:]:
+    idx = 1
+    while idx < len(sys.argv):
+        arg = sys.argv[idx]
         if arg in ("-y", "--force"):
             force = True
+        elif arg == "--prefix" and idx + 1 < len(sys.argv):
+            prefix_override = sys.argv[idx + 1]
+            idx += 1
         else:
-            # Assume first non-flag argument is the template path
-            if template_path is None:
+            if template_path is None and not arg.startswith("-"):
                 template_path = arg
+        idx += 1
 
     if not template_path:
         print("Error: Missing template configuration file path.")
-        print("Usage: python manage_configs.py <template_yaml_path> [-y/--force]")
+        print("Usage: python manage_configs.py <template_yaml_path> [-y/--force] [--prefix PREFIX]")
         sys.exit(1)
 
     if not os.path.exists(template_path):
@@ -47,7 +54,6 @@ def main():
         sys.exit(1)
 
     common_data = load_yaml(common_path)
-    # Make a copy to track modifications to common.yaml
     updated_common_data = dict(common_data)
 
     # 3. Load the template
@@ -57,13 +63,11 @@ def main():
     scenarios = template.get("scenarios", [])
 
     # 4. Handle single-valued parameter comparison with common.yaml
-    # We ask the user for any parameter in 'global' that differs from current common.yaml
     local_global_overrides = {}
     for key, template_val in global_params.items():
         common_val = common_data.get(key)
         if common_val != template_val:
             if force:
-                # In force mode, default to updating common.yaml globally
                 updated_common_data[key] = template_val
             else:
                 print(f"Parameter '{key}' has value '{template_val}' in template, but '{common_val}' in common.yaml.")
@@ -76,11 +80,9 @@ def main():
                     print(f"-> Selected local override. '{key}' will be written to generated configs where applicable.")
 
     # 5. Generate combinations
-    # Extract keys and values from sweep
     sweep_keys = sorted(sweep.keys())
     sweep_lists = [sweep[k] for k in sweep_keys]
     
-    # Generate Cartesian product combinations
     combinations = []
     if sweep_lists:
         for comb in itertools.product(*sweep_lists):
@@ -90,7 +92,6 @@ def main():
 
     proposed_files = {}
 
-    # Track if common.yaml needs modification
     common_modified = updated_common_data != common_data
     if common_modified:
         proposed_files["common.yaml"] = {
@@ -103,23 +104,17 @@ def main():
     global_idx = 1
     for scenario in scenarios:
         custom_name = scenario.get("name")
-        # Clean scenario params from custom name metadata
         scenario_params = {k: v for k, v in scenario.items() if k != "name"}
 
         for comb in combinations:
-            # Final values for this specific file
             file_values = {}
-            # Start with template globals
             for k, v in global_params.items():
                 file_values[k] = v
-            # Apply scenario overrides
             for k, v in scenario_params.items():
                 file_values[k] = v
-            # Apply sweep overrides
             for k, v in comb.items():
                 file_values[k] = v
 
-            # Calculate only overrides compared to the updated common.yaml
             file_overrides = {}
             for k, v in file_values.items():
                 if updated_common_data.get(k) != v:
@@ -128,11 +123,14 @@ def main():
             # Deterministic filename generation
             name_part = f"{custom_name}_" if custom_name else ""
             suffix = "_".join(f"{k.lower()}{v}" for k, v in sorted(comb.items()))
-            filename = f"exp{global_idx}_{name_part}{suffix}.yaml"
+            if prefix_override:
+                filename = f"{prefix_override}_{name_part}{suffix}".strip("_") + ".yaml"
+            else:
+                filename = f"exp{global_idx}_{name_part}{suffix}".strip("_") + ".yaml"
+
             file_path = os.path.join(config_dir, filename)
             global_idx += 1
 
-            # Check if file exists to see if it is MODIFY or NEW
             action = "MODIFY" if os.path.exists(file_path) else "NEW"
 
             proposed_files[filename] = {
@@ -174,7 +172,6 @@ def main():
             print(f"Updated {path}")
         else:
             if not content:
-                # Write empty file with comments
                 with open(path, "w") as f:
                     f.write("# Use all defaults from common.yaml\n")
             else:

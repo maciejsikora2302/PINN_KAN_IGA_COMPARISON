@@ -9,7 +9,10 @@ from model import ExperimentInterface
 from config import IGAConfig
 from src.problems import get_problem, BasePDEProblem
 
-def bspline_basis_single(i: int, p: int, knots: np.ndarray, x: float) -> float:
+from functools import lru_cache
+
+@lru_cache(maxsize=10240)
+def bspline_basis_single_cached(i: int, p: int, knots: tuple, x: float) -> float:
     if p == 0:
         if i == len(knots) - 2:
             return 1.0 if (knots[i] <= x <= knots[i+1]) else 0.0
@@ -21,15 +24,19 @@ def bspline_basis_single(i: int, p: int, knots: np.ndarray, x: float) -> float:
 
     val1 = 0.0
     if denom1 > 0:
-        val1 = (x - knots[i]) / denom1 * bspline_basis_single(i, p-1, knots, x)
+        val1 = (x - knots[i]) / denom1 * bspline_basis_single_cached(i, p-1, knots, x)
 
     val2 = 0.0
     if denom2 > 0:
-        val2 = (knots[i+p+1] - x) / denom2 * bspline_basis_single(i+1, p-1, knots, x)
+        val2 = (knots[i+p+1] - x) / denom2 * bspline_basis_single_cached(i+1, p-1, knots, x)
 
     return val1 + val2
 
-def bspline_basis_deriv_single(i: int, p: int, knots: np.ndarray, x: float) -> float:
+def bspline_basis_single(i: int, p: int, knots: np.ndarray, x: float) -> float:
+    return bspline_basis_single_cached(i, p, tuple(knots), x)
+
+@lru_cache(maxsize=10240)
+def bspline_basis_deriv_single_cached(i: int, p: int, knots: tuple, x: float) -> float:
     if p == 0:
         return 0.0
 
@@ -38,13 +45,16 @@ def bspline_basis_deriv_single(i: int, p: int, knots: np.ndarray, x: float) -> f
 
     val1 = 0.0
     if denom1 > 0:
-        val1 = p / denom1 * bspline_basis_single(i, p-1, knots, x)
+        val1 = p / denom1 * bspline_basis_single_cached(i, p-1, knots, x)
 
     val2 = 0.0
     if denom2 > 0:
-        val2 = -p / denom2 * bspline_basis_single(i+1, p-1, knots, x)
+        val2 = -p / denom2 * bspline_basis_single_cached(i+1, p-1, knots, x)
 
     return val1 + val2
+
+def bspline_basis_deriv_single(i: int, p: int, knots: np.ndarray, x: float) -> float:
+    return bspline_basis_deriv_single_cached(i, p, tuple(knots), x)
 
 def bspline_basis(i: int, p: int, knots: np.ndarray, x: np.ndarray) -> np.ndarray:
     return np.vectorize(lambda val: bspline_basis_single(i, p, knots, val))(x)

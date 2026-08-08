@@ -11,7 +11,7 @@ def numpy_exact_solution(x, t, config_data):
     if example == 1:
         return np.sin(2.0 * np.pi * x) * np.sin(2.0 * np.pi * t)
     elif example == 2:
-        return -np.exp(np.pi * (x - 2.0 * t)) * np.sin(2.0 * np.pi * x) * np.sin(np.pi * t)
+        return np.sin(2.0 * np.pi * x) * np.sin(2.0 * np.pi * t) * np.exp(np.pi * (x - 2.0 * t))
     elif example == 3:
         r1 = (1.0 + np.sqrt(1.0 + 4.0 * epsilon * epsilon * np.pi * np.pi)) / (2.0 * epsilon)
         r2 = (1.0 - np.sqrt(1.0 + 4.0 * epsilon * epsilon * np.pi * np.pi)) / (2.0 * epsilon)
@@ -366,6 +366,20 @@ def main():
                             })
             except Exception as e:
                 print(f"Error reading activation functions for {algo}: {e}")
+
+    # Add Boundary Layer Slice Plot Task
+    if predictions:
+        tasks.append({
+            "method": "plot_boundary_layer_slice",
+            "kwargs": {
+                "predictions": predictions,
+                "example": config_data.get("EXAMPLE", 3),
+                "epsilon": config_data.get("EPSILON", 0.01),
+                "x_cut": 0.5,
+                "title": f"Boundary Layer Profile - {config_name}",
+                "save_path": os.path.join(output_dir, "comparison_boundary_layer_slice.png")
+            }
+        })
 
     # Parallel Execution
     num_tasks = len(tasks)
