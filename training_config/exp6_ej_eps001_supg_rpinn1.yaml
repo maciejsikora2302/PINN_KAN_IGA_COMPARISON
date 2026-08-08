@@ -1,1 +1,2 @@
+EPOCHS: 40000
 IGA_METHOD: supg
