@@ -32,6 +32,10 @@ class Config:
         if hasattr(self, 'KAN_NEURONS_PER_LAYER') and self.KAN_NEURONS_PER_LAYER is None:
             if self.NEURONS_PER_LAYER is not None:
                 self.KAN_NEURONS_PER_LAYER = max(5, self.NEURONS_PER_LAYER // 5)
+        if hasattr(self, 'KAN_EPOCHS') and getattr(self, 'KAN_EPOCHS', None) is None:
+            self.KAN_EPOCHS = getattr(self, 'EPOCHS', None)
+        if hasattr(self, 'KAN_LEARNING_RATE') and getattr(self, 'KAN_LEARNING_RATE', None) is None:
+            self.KAN_LEARNING_RATE = getattr(self, 'LEARNING_RATE', None)
 
         # 3. Handle default OUTPUT_DIR dynamically based on config name if not explicitly set
         if not getattr(self, 'OUTPUT_DIR', None):
@@ -53,8 +57,8 @@ class Config:
     def __str__(self):
         config_parameters = [f"{key}={value}" for key, value in self.__dict__.items()]
         return "Config: \n" + '='*50 + '\n' + '\n'.join(config_parameters) + '\n' + '='*50
-
-
+ 
+ 
 class SharedConfig(Config):
     """Shared configuration properties"""
     
@@ -68,7 +72,9 @@ class SharedConfig(Config):
         self.KAN_LAYERS = None
         self.KAN_NEURONS_PER_LAYER = None
         self.EPOCHS = None
+        self.KAN_EPOCHS = None
         self.LEARNING_RATE = None
+        self.KAN_LEARNING_RATE = None
         self.RPINN = None
         self.EXAMPLE = None
         self.EPSILON = None
@@ -99,7 +105,9 @@ class SharedConfig(Config):
         self.KAN_LAYERS = args.kan_layers if hasattr(args, 'kan_layers') and args.kan_layers is not None else self.KAN_LAYERS
         self.KAN_NEURONS_PER_LAYER = args.kan_neurons_per_layer if hasattr(args, 'kan_neurons_per_layer') and args.kan_neurons_per_layer is not None else self.KAN_NEURONS_PER_LAYER
         self.EPOCHS = args.epochs if hasattr(args, 'epochs') and args.epochs is not None else self.EPOCHS
+        self.KAN_EPOCHS = args.kan_epochs if hasattr(args, 'kan_epochs') and args.kan_epochs is not None else self.KAN_EPOCHS
         self.LEARNING_RATE = args.learning_rate if hasattr(args, 'learning_rate') and args.learning_rate is not None else self.LEARNING_RATE
+        self.KAN_LEARNING_RATE = args.kan_learning_rate if hasattr(args, 'kan_learning_rate') and args.kan_learning_rate is not None else self.KAN_LEARNING_RATE
         self.RPINN = args.rpinn if hasattr(args, 'rpinn') and args.rpinn is not None else self.RPINN
         self.EXAMPLE = args.example if hasattr(args, 'example') and args.example is not None else self.EXAMPLE
         self.EPSILON = args.epsilon if hasattr(args, 'epsilon') and args.epsilon is not None else self.EPSILON

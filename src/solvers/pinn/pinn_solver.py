@@ -76,6 +76,9 @@ class PINNExperiment(ExperimentInterface):
         self.x_grid: Any = None
         self.t_grid: Any = None
         self.final_h1_error = None
+        self.wall_time_limit = None
+        self.epochs_trained = 0
+        self.epochs_total = 0
         super().__init__(config_path)
 
     def load_config(self, config_path: str) -> None:
@@ -150,9 +153,16 @@ class PINNExperiment(ExperimentInterface):
 
         print(f"=== Starting training for activation: {self.config.ACTIVATION} ===")
         print_every = max(1, self.config.EPOCHS // 200)
-        start_time = time.time()
+        self.epochs_total = self.config.EPOCHS
+        self.epochs_trained = 0
+        start_time = time.perf_counter()
 
         for epoch in range(self.config.EPOCHS):
+            self.epochs_trained = epoch + 1
+            if self.wall_time_limit is not None and (time.perf_counter() - start_time) > self.wall_time_limit:
+                print(f"\n[Wall Clock Limit Breached] Stopping PINN training early at epoch {self.epochs_trained}")
+                break
+
             self.model.train()
             optimizer.zero_grad()
 
@@ -167,7 +177,7 @@ class PINNExperiment(ExperimentInterface):
                 self.h1_error_history.append(h1)
 
             if (epoch + 1) % print_every == 0 or epoch == 0 or (epoch + 1) == self.config.EPOCHS:
-                elapsed = time.time() - start_time
+                elapsed = time.perf_counter() - start_time
                 progress = (epoch + 1) / self.config.EPOCHS
 
                 el_min, el_sec = divmod(int(elapsed), 60)
@@ -236,6 +246,8 @@ class PINNExperiment(ExperimentInterface):
             final_h1_error=np.array(self.final_h1_error if self.final_h1_error is not None else 0.0),
             final_l2_error=np.array(self.final_l2_error if getattr(self, "final_l2_error", None) is not None else 0.0),
             final_linf_error=np.array(self.final_linf_error if getattr(self, "final_linf_error", None) is not None else 0.0),
+            epochs_trained=np.array(self.epochs_trained),
+            epochs_total=np.array(self.epochs_total),
             x=self.x_grid.flatten().detach().cpu().numpy(),
             t=self.t_grid.flatten().detach().cpu().numpy(),
             z_pred=z_pred

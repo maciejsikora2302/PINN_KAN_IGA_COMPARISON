@@ -245,6 +245,9 @@ class KANExperiment(ExperimentInterface):
         self.x_grid: Any = None
         self.t_grid: Any = None
         self.final_h1_error = None
+        self.wall_time_limit = None
+        self.epochs_trained = 0
+        self.epochs_total = 0
         super().__init__(config_path)
 
     def load_config(self, config_path: str) -> None:
@@ -286,7 +289,7 @@ class KANExperiment(ExperimentInterface):
             spline_type=spline_type
         ).to(device)
 
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.LEARNING_RATE)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.KAN_LEARNING_RATE)
 
         def compute_interior_loss(model, x, t):
             loss = self.problem.compute_strong_residual(model, x, t)
@@ -308,10 +311,18 @@ class KANExperiment(ExperimentInterface):
         self.h1_error_history = []
 
         print(f"=== Starting KAN training (Spline Type: {spline_type}) ===")
-        print_every = max(1, self.config.EPOCHS // 200)
-        start_time = time.time()
+        kan_epochs = getattr(self.config, "KAN_EPOCHS", None) or self.config.EPOCHS
+        print_every = max(1, kan_epochs // 200)
+        self.epochs_total = kan_epochs
+        self.epochs_trained = 0
+        start_time = time.perf_counter()
 
-        for epoch in range(self.config.EPOCHS):
+        for epoch in range(kan_epochs):
+            self.epochs_trained = epoch + 1
+            if self.wall_time_limit is not None and (time.perf_counter() - start_time) > self.wall_time_limit:
+                print(f"\n[Wall Clock Limit Breached] Stopping KAN training early at epoch {self.epochs_trained}")
+                break
+
             self.model.train()
             optimizer.zero_grad()
 
@@ -325,9 +336,9 @@ class KANExperiment(ExperimentInterface):
                 h1 = compute_h1_norm(self.model, self.x_grid, self.t_grid)
                 self.h1_error_history.append(h1)
 
-            if (epoch + 1) % print_every == 0 or epoch == 0 or (epoch + 1) == self.config.EPOCHS:
-                elapsed = time.time() - start_time
-                progress = (epoch + 1) / self.config.EPOCHS
+            if (epoch + 1) % print_every == 0 or epoch == 0 or (epoch + 1) == kan_epochs:
+                elapsed = time.perf_counter() - start_time
+                progress = (epoch + 1) / kan_epochs
 
                 el_min, el_sec = divmod(int(elapsed), 60)
                 el_hr, el_min = divmod(el_min, 60)
@@ -346,7 +357,7 @@ class KANExperiment(ExperimentInterface):
                 bar = '=' * filled_len + '>' + '.' * (bar_len - filled_len - 1)
                 bar = bar[:bar_len]
                 h1_str = f" | H1 Error: {self.h1_error_history[-1]:.6e}" if self.h1_error_history else ""
-                print(f"\rKAN Training: [{bar}] {epoch + 1}/{self.config.EPOCHS} ({progress*100:.1f}%) | {el_str} < {eta_str} | Loss: {loss_val.item():.6e}{h1_str}", end="", flush=True)
+                print(f"\rKAN Training: [{bar}] {epoch + 1}/{kan_epochs} ({progress*100:.1f}%) | {el_str} < {eta_str} | Loss: {loss_val.item():.6e}{h1_str}", end="", flush=True)
 
         print()
         self.model.eval()
@@ -411,6 +422,8 @@ class KANExperiment(ExperimentInterface):
             final_h1_error=np.array(self.final_h1_error if self.final_h1_error is not None else 0.0),
             final_l2_error=np.array(self.final_l2_error if getattr(self, "final_l2_error", None) is not None else 0.0),
             final_linf_error=np.array(self.final_linf_error if getattr(self, "final_linf_error", None) is not None else 0.0),
+            epochs_trained=np.array(self.epochs_trained),
+            epochs_total=np.array(self.epochs_total),
             x=self.x_grid.flatten().detach().cpu().numpy(),
             t=self.t_grid.flatten().detach().cpu().numpy(),
             z_pred=z_pred,

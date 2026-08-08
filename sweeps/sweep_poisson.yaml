@@ -24,9 +24,13 @@ sweep:
 scenarios:
   - name: "poisson_sin"
     EXAMPLE: 1
-    EPOCHS: 10000
+    EPOCHS: 5000
+    KAN_EPOCHS: 2000
     LEARNING_RATE: 0.001
+    KAN_LEARNING_RATE: 0.001
   - name: "poisson_exp"
     EXAMPLE: 2
-    EPOCHS: 20000
+    EPOCHS: 10000
+    KAN_EPOCHS: 5000
     LEARNING_RATE: 0.0005
+    KAN_LEARNING_RATE: 0.001

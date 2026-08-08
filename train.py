@@ -13,6 +13,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run PINN, KAN, and IGA solvers based on a YAML configuration.")
     parser.add_argument("--config", type=str, help="Configuration filename or path.")
     parser.add_argument("config_pos", type=str, nargs="?", help="Configuration filename or path (positional).")
+    parser.add_argument("--fast", nargs="?", const=5.0, type=float, help="Stop training if wall-clock time in minutes is exceeded.")
     args = parser.parse_args()
 
     config_filename = args.config if args.config else args.config_pos
@@ -45,6 +46,8 @@ def main():
     print("--- Running PINN Solver ---")
     start_time_pinn = time.time()
     pinn_solver = PINNExperiment(config_path)
+    if args.fast is not None:
+        pinn_solver.wall_time_limit = args.fast * 60.0
     pinn_solver.train()
     pinn_solver.save_outcomes(os.path.join(output_dir, "pinn.npz"))
     elapsed_pinn = time.time() - start_time_pinn
@@ -53,6 +56,8 @@ def main():
     print("\n--- Running KAN Solver ---")
     start_time_kan = time.time()
     kan_solver = KANExperiment(config_path)
+    if args.fast is not None:
+        kan_solver.wall_time_limit = args.fast * 60.0
     kan_solver.train()
     kan_solver.save_outcomes(os.path.join(output_dir, "kan.npz"))
     elapsed_kan = time.time() - start_time_kan
@@ -96,6 +101,8 @@ def main():
             "neurons_per_layer": pinn_solver.config.NEURONS_PER_LAYER,
             "activation": str(pinn_solver.config.ACTIVATION),
             "sampler_type": str(pinn_solver.config.SAMPLER_TYPE),
+            "epochs_trained": getattr(pinn_solver, "epochs_trained", pinn_solver.config.EPOCHS),
+            "epochs_total": getattr(pinn_solver, "epochs_total", pinn_solver.config.EPOCHS),
             "final_loss": float(pinn_solver.final_loss) if pinn_solver.final_loss is not None else None,
             "final_h1_error": float(pinn_solver.final_h1_error) if pinn_solver.final_h1_error is not None else None,
             "final_l2_error": float(pinn_solver.final_l2_error) if getattr(pinn_solver, "final_l2_error", None) is not None else None,
@@ -108,6 +115,8 @@ def main():
             "neurons_per_layer": kan_solver.config.KAN_NEURONS_PER_LAYER,
             "spline_type": str(kan_solver.config.KAN_SPLINE_TYPE),
             "sampler_type": str(kan_solver.config.SAMPLER_TYPE),
+            "epochs_trained": getattr(kan_solver, "epochs_trained", getattr(kan_solver.config, "KAN_EPOCHS", None) or kan_solver.config.EPOCHS),
+            "epochs_total": getattr(kan_solver, "epochs_total", getattr(kan_solver.config, "KAN_EPOCHS", None) or kan_solver.config.EPOCHS),
             "final_loss": float(kan_solver.final_loss) if kan_solver.final_loss is not None else None,
             "final_h1_error": float(kan_solver.final_h1_error) if kan_solver.final_h1_error is not None else None,
             "final_l2_error": float(kan_solver.final_l2_error) if getattr(kan_solver, "final_l2_error", None) is not None else None,

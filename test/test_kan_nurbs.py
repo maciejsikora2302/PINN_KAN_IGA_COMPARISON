@@ -62,6 +62,7 @@ class TestKANNURBS(unittest.TestCase):
             "KAN_LAYERS": 1,
             "KAN_NEURONS_PER_LAYER": 8,
             "EPOCHS": 10,
+            "KAN_EPOCHS": 10,
             "LEARNING_RATE": 0.01,
             "EXAMPLE": 1,
             "EPSILON": 0.01,

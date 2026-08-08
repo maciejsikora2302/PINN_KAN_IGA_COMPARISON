@@ -6,8 +6,9 @@ import re
 import argparse
 
 def natural_sort_key(filename):
-    if filename == "test_config.yaml":
-        return (0, 0, filename)
+    if "test" in filename.lower():
+        is_test_config = 0 if filename == "test_config.yaml" else 1
+        return (3, is_test_config, filename)
     match = re.match(r'^exp(\d+)', filename)
     if match:
         return (1, int(match.group(1)), filename)
@@ -24,6 +25,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Run all solver configurations and generate plots.")
     parser.add_argument("--start", "-s", type=str, help="Experiment name, prefix, or number to start from.")
+    parser.add_argument("--fast", nargs="?", const=5.0, type=float, help="Stop training early after a specified wall time in minutes (default 5.0).")
     args = parser.parse_args()
 
     # Find all yaml/yml files, skipping common.yaml and original.yaml
@@ -39,6 +41,9 @@ def main():
         return
 
     # Handle start-from logic
+    skipped_configs = []
+    run_configs = list(configs)
+
     if args.start:
         start_idx = None
         # 1. Exact match
@@ -64,15 +69,25 @@ def main():
 
         if start_idx is None:
             print(f"Error: Starting configuration matching '{args.start}' was not found.")
-            print("Available configurations:")
+            print("Available configurations in deterministic order:")
             for c in configs:
                 print(f"  - {c}")
             sys.exit(1)
             
-        print(f"Starting execution from configuration: {configs[start_idx]}")
-        configs = configs[start_idx:]
+        skipped_configs = configs[:start_idx]
+        run_configs = configs[start_idx:]
 
-    print(f"Found {len(configs)} configurations to run:\n" + "\n".join(f"-> {c}" for c in configs) + "\n")
+    print("=== Deterministic Configuration Run Order Evaluation ===")
+    if skipped_configs:
+        print(f"Skipped configurations ({len(skipped_configs)}):")
+        for c in skipped_configs:
+            print(f"  [SKIP] {c}")
+    print(f"Configurations to run ({len(run_configs)}):")
+    for c in run_configs:
+        print(f"  [RUN]  {c}")
+    print("=" * 57 + "\n")
+
+    configs = run_configs
     
     results = {}
     python_exe = sys.executable  # Use current Python interpreter
@@ -90,6 +105,8 @@ def main():
         print(f"\n--- Running Training for {config} ---")
         train_start = time.time()
         train_cmd = [python_exe, "train.py", "--config", config_path]
+        if args.fast is not None:
+            train_cmd.extend(["--fast", str(args.fast)])
         train_res = subprocess.run(train_cmd)
         train_time = time.time() - train_start
         
@@ -113,6 +130,50 @@ def main():
         else:
             print(f"Successfully processed configuration {config} in {total_config_time:.2f}s")
             results[config] = {"status": "Success", "time": total_config_time}
+
+    # 3. Generate summary tables and comparison plots
+    print("\n" + "=" * 80)
+    print("GENERATING GLOBAL SUMMARY TABLES AND COMPARISON PLOTS")
+    print("=" * 80)
+    
+    summary_tables_cmd = [python_exe, "generate_summary_tables.py"]
+    print(f"Running: {' '.join(summary_tables_cmd)}")
+    summary_tables_res = subprocess.run(summary_tables_cmd)
+    
+    comparison_suite_cmd = [python_exe, "plot_comparison_suite.py"]
+    print(f"Running: {' '.join(comparison_suite_cmd)}")
+    comparison_suite_res = subprocess.run(comparison_suite_cmd)
+    
+    # Validation
+    print("\n--- Validating Generated Summary & Plot Files ---")
+    validation_ok = True
+    
+    expected_files = [
+        os.path.join("output", "summary.md"),
+        os.path.join("output", "summary_table.tex"),
+    ]
+    for ef in expected_files:
+        if os.path.exists(ef) and os.path.getsize(ef) > 0:
+            print(f"  [OK]  {ef} generated successfully.")
+        else:
+            print(f"  [ERR] {ef} is missing or empty.")
+            validation_ok = False
+            
+    comparison_dir = os.path.join("output", "comparison_suite")
+    if os.path.exists(comparison_dir) and os.path.isdir(comparison_dir):
+        png_files = [f for f in os.listdir(comparison_dir) if f.endswith(".png")]
+        if png_files:
+            print(f"  [OK]  {comparison_dir} contains {len(png_files)} plot(s): {', '.join(png_files[:3])}...")
+        else:
+            print(f"  [WARN] {comparison_dir} exists but contains no plots.")
+    else:
+        print(f"  [ERR] {comparison_dir} was not created.")
+        validation_ok = False
+        
+    if validation_ok:
+        print("Validation Successful: All summary files and plots are generated correctly.")
+    else:
+        print("Validation Warning: Some expected summary tables or comparison plots were missing.")
 
     # Final summary
     total_time = time.time() - total_start
