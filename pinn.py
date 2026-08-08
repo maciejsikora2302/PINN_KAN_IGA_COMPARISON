@@ -11,48 +11,6 @@ from config import PINNConfig
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Learnable activation function from lain_poisson.py
-#
-# Comparison of formulations:
-#
-# Original formulation (from lainpoisson_iga2026.py):
-#   den = 1.0
-#   for i, coeff in enumerate(self.den_coeffs, start=1):
-#       den = den + coeff * (x ** i)
-#   den = torch.clamp(den, min=self.eps)
-#
-# Current formulation:
-#   den_poly = 0.0
-#   for i, coeff in enumerate(self.den_coeffs, start=1):
-#       den_poly = den_poly + coeff * (x ** i)
-#   den = 1.0 + torch.abs(den_poly)
-#
-# Why the current version is better:
-# 1. No Discontinuous Gradients: torch.clamp introduces a hard threshold (min=eps).
-#    When the denominator falls below eps, the gradient of the clamped output with
-#    respect to the coefficients becomes zero, which halts gradient descent updates.
-# 2. Smoothness and Positivity Guarantee: 1.0 + torch.abs(den_poly) mathematically
-#    guarantees that den >= 1.0 everywhere. It avoids division-by-zero or negative
-#    values smoothly without flat regions, ensuring continuous gradients.
-class LearnableRational(nn.Module):
-    def __init__(self, num_order=2, den_order=2, eps=1e-6):
-        super().__init__()
-        self.eps = eps
-        self.num_coeffs = nn.Parameter(torch.randn(num_order + 1))
-        self.den_coeffs = nn.Parameter(torch.randn(den_order))
-
-    def forward(self, x):
-        num = 0.0
-        for i, coeff in enumerate(self.num_coeffs):
-            num = num + coeff * (x ** i)
-
-        den_poly = torch.zeros_like(x)
-        for i, coeff in enumerate(self.den_coeffs, start=1):
-            den_poly = den_poly + coeff * (x ** i)
-        den = 1.0 + torch.abs(den_poly)
-        return num / den
-
-
 
 # PINN Model from lain_poisson.py
 class PINN(nn.Module):
@@ -275,18 +233,16 @@ class PINNExperiment(ExperimentInterface):
             G_LU = torch.linalg.lu_factor(G)
 
         # 3. Model construction
-        if self.config.ACTIVATION == "rational":
-            act_func = LearnableRational(num_order=2, den_order=2).to(device)
-        elif self.config.ACTIVATION == "tanh":
+        if self.config.ACTIVATION == "tanh":
             act_func = nn.Tanh()
         elif self.config.ACTIVATION == "sin":
-            # Sin activation support if requested
             class SinActivation(nn.Module):
                 def forward(self, x):
                     return torch.sin(x)
             act_func = SinActivation()
         else:
-            raise ValueError(f"Activation function {self.config.ACTIVATION} not supported.")
+            # Default to standard Tanh activation for PINN
+            act_func = nn.Tanh()
 
         self.model = PINN(
             num_hidden=self.config.LAYERS, 
@@ -421,15 +377,6 @@ class PINNExperiment(ExperimentInterface):
                 z_shift = shift_EJ(self.x_grid, self.t_grid).flatten().cpu().numpy()
                 z_pred = z_pred + z_shift
         
-        # Extract LearnableRational coefficients if they exist in the model
-        rational_data = {}
-        for name, module in self.model.named_modules():
-            if isinstance(module, LearnableRational):
-                # Ensure unique and filesystem-friendly name keys
-                safe_name = name.replace(".", "_") if name else "act"
-                rational_data[f"rational_{safe_name}_num"] = module.num_coeffs.detach().cpu().numpy()
-                rational_data[f"rational_{safe_name}_den"] = module.den_coeffs.detach().cpu().numpy()
-
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         np.savez(
             path,
@@ -439,7 +386,6 @@ class PINNExperiment(ExperimentInterface):
             h1_error_history=np.array(self.h1_error_history),
             x=self.x_grid.flatten().detach().cpu().numpy(),
             t=self.t_grid.flatten().detach().cpu().numpy(),
-            z_pred=z_pred,
-            **rational_data
+            z_pred=z_pred
         )
         print(f"Outcomes saved successfully to {path}")

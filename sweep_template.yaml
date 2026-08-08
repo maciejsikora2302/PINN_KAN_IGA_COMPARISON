@@ -12,7 +12,7 @@ global:
   LEARNING_RATE: 0.001
   EXAMPLE: 1
   EPSILON: 0.01
-  ACTIVATION: "rational"
+  ACTIVATION: "tanh"
 
 sweep:
   RPINN: [0, 1]
