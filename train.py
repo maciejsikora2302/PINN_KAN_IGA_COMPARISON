@@ -49,16 +49,16 @@ def main():
     pinn_solver.save_outcomes(os.path.join(output_dir, "pinn.npz"))
     elapsed_pinn = time.time() - start_time_pinn
 
-    # Run KAN Mock
-    print("\n--- Running KAN Solver (Mock) ---")
+    # Run KAN Solver
+    print("\n--- Running KAN Solver ---")
     start_time_kan = time.time()
     kan_solver = KANExperiment(config_path)
     kan_solver.train()
     kan_solver.save_outcomes(os.path.join(output_dir, "kan.npz"))
     elapsed_kan = time.time() - start_time_kan
 
-    # Run IGA Mock
-    print("\n--- Running IGA Solver (Mock) ---")
+    # Run IGA Solver
+    print("\n--- Running IGA Solver ---")
     start_time_iga = time.time()
     iga_solver = IGAExperiment(config_path)
     iga_solver.train()
@@ -108,11 +108,15 @@ def main():
             "elapsed_seconds": elapsed_kan
         },
         "IGA": {
+            "method": str(iga_solver.config.IGA_METHOD),
+            "mesh_type": str(iga_solver.config.IGA_MESH_TYPE),
             "elements": iga_solver.config.IGA_ELEMENTS,
             "degree": iga_solver.config.IGA_DEGREE,
             "degrees_of_freedom": (iga_solver.config.IGA_ELEMENTS + iga_solver.config.IGA_DEGREE) ** 2,
             "final_loss": float(iga_solver.final_loss) if iga_solver.final_loss is not None else None,
             "final_h1_error": float(iga_solver.final_h1_error) if iga_solver.final_h1_error is not None else None,
+            "final_l2_error": float(iga_solver.final_l2_error) if getattr(iga_solver, "final_l2_error", None) is not None else None,
+            "final_linf_error": float(iga_solver.final_linf_error) if getattr(iga_solver, "final_linf_error", None) is not None else None,
             "elapsed_seconds": elapsed_iga
         }
     }

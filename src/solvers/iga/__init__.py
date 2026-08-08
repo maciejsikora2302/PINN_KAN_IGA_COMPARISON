@@ -1,8 +1,15 @@
-from .iga_solver import IGAExperiment, bspline_basis, bspline_basis_deriv, open_knot_vector
+from .experiment import IGAExperiment
+from .base import BaseIGASolver, bspline_basis, bspline_basis_deriv
+from .standard import StandardIGASolver
+from .supg import SUPGIGASolver
+from .igrm import ResidualMinimizationIGASolver
 
 __all__ = [
     "IGAExperiment",
+    "BaseIGASolver",
+    "StandardIGASolver",
+    "SUPGIGASolver",
+    "ResidualMinimizationIGASolver",
     "bspline_basis",
     "bspline_basis_deriv",
-    "open_knot_vector",
 ]

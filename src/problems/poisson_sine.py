@@ -24,6 +24,10 @@ class PoissonSineProblem(BasePDEProblem):
     PDE: -Delta u = f  =>  u_xx + u_yy + f = 0
     """
 
+    def __init__(self, epsilon: float = 1.0):
+        super().__init__(epsilon=1.0)
+        self.advection_velocity = (0.0, 0.0)
+
     def exact_solution(self, x: Any, y: Any) -> Any:
         sin = torch.sin if isinstance(x, torch.Tensor) else np.sin
         pi = torch.pi if isinstance(x, torch.Tensor) else np.pi

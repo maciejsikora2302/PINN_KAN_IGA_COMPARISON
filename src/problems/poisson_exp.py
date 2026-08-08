@@ -11,6 +11,10 @@ class PoissonExpProblem(BasePDEProblem):
     Exact solution: u(x, y) = -exp(pi*(x - 2y)) * sin(2*pi*x) * sin(pi*y)
     """
 
+    def __init__(self, epsilon: float = 1.0):
+        super().__init__(epsilon=1.0)
+        self.advection_velocity = (0.0, 0.0)
+
     def exact_solution(self, x: Any, y: Any) -> Any:
         exp = torch.exp if isinstance(x, torch.Tensor) else np.exp
         sin = torch.sin if isinstance(x, torch.Tensor) else np.sin

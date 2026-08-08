@@ -78,6 +78,13 @@ class SharedConfig(Config):
         self.H1_CALC_EVERY = 100
         self.IGA_DEGREE = 3
         self.IGA_ELEMENTS = 32
+        self.IGA_METHOD = "standard"
+        self.IGA_MESH_TYPE = "uniform"
+        self.IGA_ADAPTIVE_GAMMA = 3.0
+        self.IGA_TEST_DEGREE_ENRICHMENT = 1
+        self.KAN_SPLINE_TYPE = "nurbs"
+        self.KAN_GRID_SIZE = 5
+        self.KAN_SPLINE_ORDER = 3
 
     def assign_from_args(self, args):
         # Assign arguments to CONFIG namespace
@@ -100,6 +107,13 @@ class SharedConfig(Config):
         self.H1_CALC_EVERY = args.h1_calc_every if hasattr(args, 'h1_calc_every') and args.h1_calc_every is not None else self.H1_CALC_EVERY
         self.IGA_DEGREE = args.iga_degree if hasattr(args, 'iga_degree') and args.iga_degree is not None else self.IGA_DEGREE
         self.IGA_ELEMENTS = args.iga_elements if hasattr(args, 'iga_elements') and args.iga_elements is not None else self.IGA_ELEMENTS
+        self.IGA_METHOD = args.iga_method if hasattr(args, 'iga_method') and args.iga_method is not None else self.IGA_METHOD
+        self.IGA_MESH_TYPE = args.iga_mesh_type if hasattr(args, 'iga_mesh_type') and args.iga_mesh_type is not None else self.IGA_MESH_TYPE
+        self.IGA_ADAPTIVE_GAMMA = args.iga_adaptive_gamma if hasattr(args, 'iga_adaptive_gamma') and args.iga_adaptive_gamma is not None else self.IGA_ADAPTIVE_GAMMA
+        self.IGA_TEST_DEGREE_ENRICHMENT = args.iga_test_degree_enrichment if hasattr(args, 'iga_test_degree_enrichment') and args.iga_test_degree_enrichment is not None else self.IGA_TEST_DEGREE_ENRICHMENT
+        self.KAN_SPLINE_TYPE = args.kan_spline_type if hasattr(args, 'kan_spline_type') and args.kan_spline_type is not None else self.KAN_SPLINE_TYPE
+        self.KAN_GRID_SIZE = args.kan_grid_size if hasattr(args, 'kan_grid_size') and args.kan_grid_size is not None else self.KAN_GRID_SIZE
+        self.KAN_SPLINE_ORDER = args.kan_spline_order if hasattr(args, 'kan_spline_order') and args.kan_spline_order is not None else self.KAN_SPLINE_ORDER
 
 
 class PINNConfig(SharedConfig):

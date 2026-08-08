@@ -5,7 +5,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pinn import PINNExperiment
-from visualization import Visualizer
+from visualizer import Visualizer
 
 def main():
     print("=== Testing PINNExperiment ===")

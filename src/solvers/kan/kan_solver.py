@@ -226,9 +226,12 @@ class KANModel(nn.Module):
         return logits
 
 
+from .kan_model import KANModel, KAN
+from .nurbs import NURBSLinear
+
 class KANExperiment(ExperimentInterface):
     """
-    Refactored KAN Experiment implementation.
+    Refactored KAN Experiment implementation supporting both NURBS and B-spline activation functions.
     Fully decoupled from specific problem formulas via the PDEProblem strategy pattern.
     """
 
@@ -268,11 +271,16 @@ class KANExperiment(ExperimentInterface):
             G_LU = sampler.build_gram_matrix(self.config.N_POINTS_X, self.config.N_POINTS_T, device=device)
 
         layers_hidden = [2] + [self.config.KAN_NEURONS_PER_LAYER] * self.config.KAN_LAYERS + [1]
+        spline_type = getattr(self.config, "KAN_SPLINE_TYPE", "nurbs")
+        grid_size = getattr(self.config, "KAN_GRID_SIZE", 5)
+        spline_order = getattr(self.config, "KAN_SPLINE_ORDER", 3)
+
         self.model = KANModel(
             layers_hidden=layers_hidden,
-            grid_size=5,
-            spline_order=3,
-            pinning=True
+            grid_size=grid_size,
+            spline_order=spline_order,
+            pinning=True,
+            spline_type=spline_type
         ).to(device)
 
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.LEARNING_RATE)
@@ -296,7 +304,7 @@ class KANExperiment(ExperimentInterface):
         self.loss_history = []
         self.h1_error_history = []
 
-        print("=== Starting KAN training ===")
+        print(f"=== Starting KAN training (Spline Type: {spline_type}) ===")
         print_every = max(1, self.config.EPOCHS // 200)
         start_time = time.time()
 
@@ -370,9 +378,14 @@ class KANExperiment(ExperimentInterface):
                 x_eval = torch.linspace(-1.5, 1.5, 200, device=device)
                 kan_curves["kan_x_eval"] = x_eval.cpu().numpy()
                 for idx, layer in enumerate(self.model.kan.layers):
-                    if isinstance(layer, KANLinear):
-                        phi = layer.evaluate_edges(x_eval)
-                        kan_curves[f"kan_layer_{idx}_phi"] = phi.cpu().numpy()
+                    if hasattr(layer, "evaluate_edges"):
+                        out_edges = layer.evaluate_edges(x_eval)
+                        if isinstance(out_edges, tuple):
+                            phi, w = out_edges
+                            kan_curves[f"kan_layer_{idx}_phi"] = phi.cpu().numpy()
+                            kan_curves[f"kan_layer_{idx}_nurbs_weights"] = w.cpu().numpy()
+                        else:
+                            kan_curves[f"kan_layer_{idx}_phi"] = out_edges.cpu().numpy()
             except Exception as e:
                 print(f"Warning: Failed to extract KAN edge activations: {e}")
 
