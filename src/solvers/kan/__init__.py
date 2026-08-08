@@ -1,4 +1,4 @@
-from src.solvers.kan import KANExperiment, KANModel, KAN, KANLinear
+from .kan_solver import KANExperiment, KANModel, KAN, KANLinear
 
 __all__ = [
     "KANExperiment",
