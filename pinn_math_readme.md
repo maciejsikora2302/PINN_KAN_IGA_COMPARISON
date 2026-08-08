@@ -33,21 +33,27 @@ The interior loss evaluates the strong form of the PDE residuals. The residual $
 
 ### Examples 1 & 2 (Poisson Equation)
 The governing equation is the 2D Poisson problem:
+
 $$
 \Delta u(x,t) = f(x,t) \implies \frac{\partial^2 u}{\partial x^2} + \frac{\partial^2 u}{\partial t^2} - f(x,t) = 0
 $$
-Since the code constructs the right-hand side `rhs` using the exact solution derivatives $f(x,t) = \Delta u_{exact}(x,t)$, the loss residual $L(x,t)$ is defined as:
+
+Since the code constructs the right-hand side `rhs` using the exact solution derivatives $f(x,t) = \Delta u_{\mathrm{exact}}(x,t)$, the loss residual $L(x,t)$ is defined as:
+
 $$
-L(x,t) = \frac{\partial^2 u_\theta}{\partial t^2} + \frac{\partial^2 u_\theta}{\partial x^2} - \Delta u_{exact}(x,t)
+L(x,t) = \frac{\partial^2 u_\theta}{\partial t^2} + \frac{\partial^2 u_\theta}{\partial x^2} - \Delta u_{\mathrm{exact}}(x,t)
 $$
 
 ### Example 3 (Eriksson-Johnson Problem)
 This represents a convection-diffusion equation (often written as $u_y - \epsilon \Delta u = 0$):
+
 $$
 \frac{\partial u}{\partial t} - \epsilon \left( \frac{\partial^2 u}{\partial t^2} + \frac{\partial^2 u}{\partial x^2} \right) = 0
 $$
+
 The solution incorporates a shift function $S(x,t) = \sin(\pi x)(1 - t)$. Therefore, the full approximation is $u(x,t) = u_\theta(x,t) + S(x,t)$. 
 The residual is defined as:
+
 $$
 L(x,t) = \left( \frac{\partial u_\theta}{\partial t} - \epsilon \Delta u_\theta \right) + \left( \frac{\partial S}{\partial t} - \epsilon \Delta S \right)
 $$
@@ -69,15 +75,19 @@ A matrix $G$ of size $(N_x \cdot N_t) \times (N_x \cdot N_t)$ is constructed usi
 Given the flattened residual vector $\vec{L}$:
 1. We solve the linear system $G \vec{w} = \vec{L}$ (where $\vec{w} = G^{-1}\vec{L}$) using an LU decomposition (`G_LU`).
 2. The final scalar loss is calculated as the dot product:
+
 $$
 \mathcal{L} = \vec{L}^T G^{-1} \vec{L} = \vec{L}^T \vec{w}
 $$
+
 This mathematical approach effectively calculates the weighted $H^{-1}$ Sobolev norm of the error residual. **This is a critical algorithm to port identically over to the KAN framework.**
 
 ## 5. Evaluation Metric ($H^1$ Semi-Norm Error)
 
 To evaluate the solver's accuracy, the code calculates the $H^1$ semi-norm of the error:
+
 $$
-\text{Error}_{H^1} = \sqrt{ \frac{1}{N} \sum_{i=1}^N \left( \left( \frac{\partial u_{exact}}{\partial x} - \frac{\partial u_\theta}{\partial x} \right)^2 + \left( \frac{\partial u_{exact}}{\partial t} - \frac{\partial u_\theta}{\partial t} \right)^2 \right) }
+\mathrm{Error}_{H^1} = \sqrt{ \frac{1}{N} \sum_{i=1}^N \left( \left( \frac{\partial u_{\mathrm{exact}}}{\partial x} - \frac{\partial u_\theta}{\partial x} \right)^2 + \left( \frac{\partial u_{\mathrm{exact}}}{\partial t} - \frac{\partial u_\theta}{\partial t} \right)^2 \right) }
 $$
+
 For Example 3, the gradients of the shift function $S(x,t)$ are correctly subtracted to align the continuous PINN output with the exact solution definitions.

@@ -8,32 +8,32 @@ This document provides a mathematical and technical overview of the Kolmogorov-A
 
 Unlike Multi-Layer Perceptrons (MLPs), which apply fixed non-linear activation functions at nodes and learn weights on edges, Kolmogorov-Arnold Networks (KANs) place **learnable 1D activation functions on the edges** (connections) between nodes, and sum their outputs at the nodes.
 
-For a KAN layer with \(N_{\text{in}}\) inputs and \(N_{\text{out}}\) outputs, the transition from input vector \(\mathbf{x} \in \mathbb{R}^{N_{\text{in}}}\) to output \(\mathbf{y} \in \mathbb{R}^{N_{\text{out}}}\) is given by:
+For a KAN layer with $N_{\mathrm{in}}$ inputs and $N_{\mathrm{out}}$ outputs, the transition from input vector $\mathbf{x} \in \mathbb{R}^{N_{\mathrm{in}}}$ to output $\mathbf{y} \in \mathbb{R}^{N_{\mathrm{out}}}$ is given by:
 
-\[
-y_i = \sum_{j=1}^{N_{\text{in}}} \phi_{i, j}(x_j)
-\]
+$$
+y_i = \sum_{j=1}^{N_{\mathrm{in}}} \phi_{i, j}(x_j)
+$$
 
-where \(\phi_{i, j}(x)\) is the learnable activation function mapping input component \(j\) to output component \(i\).
+where $\phi_{i, j}(x)$ is the learnable activation function mapping input component $j$ to output component $i$.
 
-### The Edge Activation Function \(\phi_{i, j}(x)\)
+### The Edge Activation Function $\phi_{i, j}(x)$
 
-Each edge activation function \(\phi_{i, j}(x)\) is composed of two components:
+Each edge activation function $\phi_{i, j}(x)$ is composed of two components:
 1. **Base Activation**: A fixed global activation function scaled by a learnable weight.
 2. **Spline Activation**: A linear combination of B-spline basis functions scaled by learnable spline coefficients.
 
 Mathematically, it is defined as:
 
-\[
-\phi_{i, j}(x) = w_{\text{base}, i, j} \cdot b(x) + w_{\text{spline}, i, j} \cdot s(x)
-\]
+$$
+\phi_{i, j}(x) = w_{\mathrm{base}, i, j} \cdot b(x) + w_{\mathrm{spline}, i, j} \cdot s(x)
+$$
 
 where:
-- \(b(x) = \text{SiLU}(x) = \frac{x}{1 + e^{-x}}\) is the base activation function.
-- \(w_{\text{base}, i, j}\) is the learnable base weight.
-- \(s(x) = \sum_{m} c_{i, j, m} \cdot B_m(x)\) is the spline curve.
-- \(B_m(x)\) are the B-spline basis functions of order \(k\) (typically \(k=3\), cubic splines) defined over a local grid.
-- \(c_{i, j, m}\) (stored as `spline_weight` / `scaled_spline_weight`) are the learnable spline coefficients.
+- $b(x) = \mathrm{SiLU}(x) = \frac{x}{1 + e^{-x}}$ is the base activation function.
+- $w_{\mathrm{base}, i, j}$ is the learnable base weight.
+- $s(x) = \sum_{m} c_{i, j, m} \cdot B_m(x)$ is the spline curve.
+- $B_m(x)$ are the B-spline basis functions of order $k$ (typically $k=3$, cubic splines) defined over a local grid.
+- $c_{i, j, m}$ (stored as `spline_weight` / `scaled_spline_weight`) are the learnable spline coefficients.
 
 ---
 
@@ -43,8 +43,8 @@ The core elements are implemented as PyTorch modules:
 
 ### `KANLinear`
 This layer represents a single KAN layer. It maintains the learnable parameters:
-- `base_weight`: Tensor of shape `(out_features, in_features)` representing \(w_{\text{base}, i, j}\).
-- `spline_weight`: Tensor of shape `(out_features, in_features, grid_size + spline_order)` representing \(c_{i, j, m}\).
+- `base_weight`: Tensor of shape `(out_features, in_features)` representing $w_{\mathrm{base}, i, j}$.
+- `spline_weight`: Tensor of shape `(out_features, in_features, grid_size + spline_order)` representing $c_{i, j, m}$.
 - `grid`: The spline knots grid of shape `(in_features, grid_size + 2 * spline_order + 1)`.
 
 The forward pass is optimized using matrix multiplications:
@@ -69,7 +69,7 @@ for in_features, out_features in zip(layers_hidden, layers_hidden[1:]):
 
 ## 3. How Edges are Evaluated and Saved
 
-To visualize the learned shape of the edge activations \(\phi_{i, j}(x)\) without executing full forward passes or implementing B-splines in pure NumPy, a PyTorch evaluation helper is used inside `KANLinear` during outcome saving:
+To visualize the learned shape of the edge activations $\phi_{i, j}(x)$ without executing full forward passes or implementing B-splines in pure NumPy, a PyTorch evaluation helper is used inside `KANLinear` during outcome saving:
 
 ```python
 @torch.no_grad()
@@ -90,7 +90,7 @@ def evaluate_edges(self, x_range: torch.Tensor) -> torch.Tensor:
 ```
 
 During training execution:
-- At the end of KAN training, `save_outcomes` evaluates all layers' edge activations over the domain \([-1.5, 1.5]\) with 200 points.
+- At the end of KAN training, `save_outcomes` evaluates all layers' edge activations over the domain $[-1.5, 1.5]$ with 200 points.
 - The evaluation input coordinates (`kan_x_eval`) and output evaluations (`kan_layer_{idx}_phi` of shape `(out_features, in_features, N_eval)`) are written directly to `kan.npz`.
 
 ---
@@ -102,7 +102,7 @@ The `plot_parallel.py` and `visualizer.py` scripts handle rendering these activa
 1. **Individual Edge Plots**:
    To avoid generating thousands of image files for wider KAN layers, only the **top 3 most active edge activations** (those with the highest standard deviation / variation across the evaluated range) are plotted individually for each layer, saved to `output/{config_name}/kan_plots/kan_layer_{l}_edge_{i}_{j}.png`.
 2. **Layer-wide Grid Plots**:
-   To understand the layer as a whole, a matrix grid of size \(N_{\text{out}} \times N_{\text{in}}\) is plotted (limited to a maximum of \(16 \times 8\) to keep the visualization readable). Each subplot cell represents the respective edge activation \(\phi_{i, j}(x)\), saved as `output/{config_name}/kan_plots/kan_layer_{l}_grid.png`.
+   To understand the layer as a whole, a matrix grid of size $N_{\mathrm{out}} \times N_{\mathrm{in}}$ is plotted (limited to a maximum of $16 \times 8$ to keep the visualization readable). Each subplot cell represents the respective edge activation $\phi_{i, j}(x)$, saved as `output/{config_name}/kan_plots/kan_layer_{l}_grid.png`.
 
 These plots help identify:
 - Which inputs have the strongest influence on each node (via higher amplitude activation curves).
