@@ -1,0 +1,5 @@
+SOLVERS:
+- pinn
+- kan
+SAMPLER_GAMMA: 3.0
+EPSILON: 0.001

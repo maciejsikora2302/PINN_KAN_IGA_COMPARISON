@@ -26,7 +26,7 @@ class BoundaryLayerSampler(CollocationSampler):
 
         hat_t = torch.linspace(0.0, 1.0, steps=n_points_t)
         gamma = self.stretch_gamma
-        t_stretched = total_time * (torch.tanh(gamma * hat_t) / math.tanh(gamma))
+        t_stretched = total_time * (1.0 - (torch.tanh(gamma * (1.0 - hat_t)) / math.tanh(gamma)))
         t_raw = t_stretched.detach().clone().requires_grad_(True)
 
         grids = torch.meshgrid(x_raw, t_raw, indexing="ij")
@@ -46,7 +46,7 @@ class BoundaryLayerSampler(CollocationSampler):
         x_raw = torch.linspace(0.0, length, steps=n_points_x)
         hat_t = torch.linspace(0.0, 1.0, steps=n_points_t)
         gamma = self.stretch_gamma
-        t_raw = total_time * (torch.tanh(gamma * hat_t) / math.tanh(gamma))
+        t_raw = total_time * (1.0 - (torch.tanh(gamma * (1.0 - hat_t)) / math.tanh(gamma)))
 
         N_total = n_points_x * n_points_t
         G = torch.eye(N_total, dtype=torch.float32)

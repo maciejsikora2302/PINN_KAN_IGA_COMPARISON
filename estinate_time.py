@@ -3,6 +3,7 @@ import sys
 import time
 import re
 import yaml
+import argparse
 import torch
 import torch.nn as nn
 import numpy as np
@@ -13,11 +14,11 @@ if workspace_dir not in sys.path:
     sys.path.append(workspace_dir)
 
 from config import SharedConfig
-
 def natural_sort_key(filename):
-    if filename == "test_config.yaml":
-        return (0, 0, filename)
-    match = re.match(r'^exp(\d+)', filename)
+    if "test" in filename.lower():
+        is_test_config = 0 if filename == "test_config.yaml" else 1
+        return (3, is_test_config, filename)
+    match = re.search(r'exp(\d+)', filename)
     if match:
         return (1, int(match.group(1)), filename)
     return (2, 0, filename)
@@ -134,7 +135,7 @@ def calibrate():
     
     return pinn_base_coeff, pinn_lu_coeff, kan_coeff, iga_coeff
 
-def estimate_time(config_path, pinn_base_coeff, pinn_lu_coeff, kan_coeff, iga_coeff):
+def estimate_time(config_path, pinn_base_coeff, pinn_lu_coeff, kan_coeff, iga_coeff, wall_time_limit_sec=None):
     # Load config
     config = SharedConfig()
     config.load_config(config_path)
@@ -145,21 +146,45 @@ def estimate_time(config_path, pinn_base_coeff, pinn_lu_coeff, kan_coeff, iga_co
     N = n_points_x * n_points_t
     
     # 1. PINN time estimation
-    pinn_epochs = config.EPOCHS or 20000
-    pinn_base_time = pinn_epochs * N * pinn_base_coeff
-    pinn_lu_time = 0.0
-    if getattr(config, 'RPINN', 1) == 1:
-        # LU solve is done every epoch
-        pinn_lu_time = pinn_epochs * (N ** 2) * pinn_lu_coeff
-    # Startup overhead
-    pinn_est = 1.0 + pinn_base_time + pinn_lu_time
+    is_rpinn = getattr(config, 'RPINN', 0) == 1
+    if is_rpinn and getattr(config, 'RPINN_EPOCHS', None) is not None:
+        pinn_epochs = config.RPINN_EPOCHS
+    else:
+        pinn_epochs = config.EPOCHS or 20000
+
+    cost_per_epoch_pinn = N * pinn_base_coeff
+    if is_rpinn:
+        cost_per_epoch_pinn += (N ** 2) * pinn_lu_coeff
+        
+    pinn_est = 1.0 + pinn_epochs * cost_per_epoch_pinn
+    pinn_epochs_done = pinn_epochs
     
+    if wall_time_limit_sec is not None:
+        if pinn_est > wall_time_limit_sec:
+            pinn_epochs_done = int(max(0.0, wall_time_limit_sec - 1.0) / cost_per_epoch_pinn) if cost_per_epoch_pinn > 0 else pinn_epochs
+            pinn_epochs_done = min(pinn_epochs, pinn_epochs_done)
+            pinn_est = 1.0 + pinn_epochs_done * cost_per_epoch_pinn
+            
     # 2. KAN time estimation
-    kan_epochs = getattr(config, 'KAN_EPOCHS', None)
-    if kan_epochs is None:
-        kan_epochs = pinn_epochs
-    kan_est = 0.5 + (kan_epochs * N * kan_coeff)
+    if is_rpinn and getattr(config, 'KAN_RPINN_EPOCHS', None) is not None:
+        kan_epochs = config.KAN_RPINN_EPOCHS
+    elif getattr(config, 'KAN_EPOCHS', None) is not None:
+        kan_epochs = config.KAN_EPOCHS
+    elif is_rpinn and getattr(config, 'RPINN_EPOCHS', None) is not None:
+        kan_epochs = config.RPINN_EPOCHS
+    else:
+        kan_epochs = config.EPOCHS or 20000
+
+    cost_per_epoch_kan = N * kan_coeff
+    kan_est = 0.5 + kan_epochs * cost_per_epoch_kan
+    kan_epochs_done = kan_epochs
     
+    if wall_time_limit_sec is not None:
+        if kan_est > wall_time_limit_sec:
+            kan_epochs_done = int(max(0.0, wall_time_limit_sec - 0.5) / cost_per_epoch_kan) if cost_per_epoch_kan > 0 else kan_epochs
+            kan_epochs_done = min(kan_epochs, kan_epochs_done)
+            kan_est = 0.5 + kan_epochs_done * cost_per_epoch_kan
+
     # 3. IGA time estimation
     iga_degree = config.IGA_DEGREE or 3
     iga_elements = config.IGA_ELEMENTS or 32
@@ -174,7 +199,9 @@ def estimate_time(config_path, pinn_base_coeff, pinn_lu_coeff, kan_coeff, iga_co
     
     return {
         'pinn_epochs': pinn_epochs,
+        'pinn_epochs_done': pinn_epochs_done,
         'kan_epochs': kan_epochs,
+        'kan_epochs_done': kan_epochs_done,
         'n_points': N,
         'rpinn': getattr(config, 'RPINN', 1),
         'iga_elements': iga_elements,
@@ -195,6 +222,10 @@ def format_time(seconds):
     return f"{hours:.1f}h"
 
 def main():
+    parser = argparse.ArgumentParser(description="Estimate execution times for PINN, KAN, and IGA solvers.")
+    parser.add_argument("--time", type=float, default=5.0, help="Wall-clock time limit per training in minutes (default 5.0).")
+    args = parser.parse_args()
+    
     config_dir = "training_config"
     if not os.path.exists(config_dir):
         print(f"Error: Configuration directory '{config_dir}' not found.")
@@ -213,15 +244,19 @@ def main():
         
     pinn_base_coeff, pinn_lu_coeff, kan_coeff, iga_coeff = calibrate()
     
-    print(f"{'Config Name':<35} | {'PINN Est':<10} | {'KAN Est':<10} | {'IGA Est':<10} | {'Total Est':<10} | {'Longest':<8} | {'Diff (L-S)':<12}")
-    print("-" * 115)
+    wall_time_sec = args.time * 60.0
+    print(f"Applying Wall-Clock Time Limit per Solver Run: {args.time} minutes ({wall_time_sec:.0f}s)")
+    print("-" * 145)
+    
+    print(f"{'Config Name':<35} | {'PINN Est (Epochs)':<25} | {'KAN Est (Epochs)':<25} | {'IGA Est':<10} | {'Total Est':<10} | {'Longest':<8} | {'Diff (L-S)':<12}")
+    print("-" * 145)
     
     total_suite_time = 0.0
     
     for c in configs:
         config_path = os.path.join(config_dir, c)
         try:
-            est = estimate_time(config_path, pinn_base_coeff, pinn_lu_coeff, kan_coeff, iga_coeff)
+            est = estimate_time(config_path, pinn_base_coeff, pinn_lu_coeff, kan_coeff, iga_coeff, wall_time_limit_sec=wall_time_sec)
             total_suite_time += est['total_est']
             
             pinn_t = est['pinn_est']
@@ -232,13 +267,16 @@ def main():
             shortest_name = min(times, key=times.get)
             diff_val = times[longest_name] - times[shortest_name]
             
+            pinn_str = f"{format_time(pinn_t)} ({est['pinn_epochs_done']}/{est['pinn_epochs']})"
+            kan_str = f"{format_time(kan_t)} ({est['kan_epochs_done']}/{est['kan_epochs']})"
+            
             display_name = c if len(c) <= 35 else c[:32] + "..."
-            print(f"{display_name:<35} | {format_time(pinn_t):<10} | {format_time(kan_t):<10} | {format_time(iga_t):<10} | {format_time(est['total_est']):<10} | {longest_name:<8} | {format_time(diff_val):<12}")
+            print(f"{display_name:<35} | {pinn_str:<25} | {kan_str:<25} | {format_time(iga_t):<10} | {format_time(est['total_est']):<10} | {longest_name:<8} | {format_time(diff_val):<12}")
         except Exception as e:
             display_name = c if len(c) <= 35 else c[:32] + "..."
             print(f"{display_name:<35} | Error: {e}")
             
-    print("-" * 115)
+    print("-" * 145)
     print(f"Estimated Total Time to run all configurations sequentially: {format_time(total_suite_time)}")
 
 if __name__ == "__main__":

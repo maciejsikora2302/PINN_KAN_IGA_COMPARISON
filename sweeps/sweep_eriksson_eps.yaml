@@ -10,9 +10,6 @@ global:
   KAN_NEURONS_PER_LAYER: 10
   KAN_SPLINE_TYPE: "nurbs"
   ACTIVATION: "tanh"
-  LEARNING_RATE: 0.0005
-  KAN_LEARNING_RATE: 0.001
-  KAN_EPOCHS: 5000
   IGA_DEGREE: 3
   IGA_ELEMENTS: 32
   H1_CALC_EVERY: 100
@@ -21,46 +18,62 @@ sweep:
   RPINN: [0, 1]
 
 scenarios:
-  # Moderate diffusion (eps = 1.0)
-  - name: "ej_eps100"
+  # --- Neural Network (PINN & KAN) Solver Runs ---
+  - name: "ej_eps100_nn"
+    SOLVERS: ["pinn", "kan"]
     EPSILON: 1.0
-    EPOCHS: 7500
+
+  - name: "ej_eps010_nn"
+    SOLVERS: ["pinn", "kan"]
+    EPSILON: 0.1
+
+  - name: "ej_eps001_nn"
+    SOLVERS: ["pinn", "kan"]
+    EPSILON: 0.01
+
+  - name: "ej_eps0001_nn"
+    SOLVERS: ["pinn", "kan"]
+    EPSILON: 0.001
+
+  # --- IGA Solver Runs (Independent of RPINN settings) ---
+  # Moderate diffusion
+  - name: "ej_eps100_iga"
+    SOLVERS: ["iga"]
+    EPSILON: 1.0
     IGA_METHOD: "standard"
     IGA_MESH_TYPE: "uniform"
 
-  # Intermediate advection-diffusion (eps = 0.1)
-  - name: "ej_eps010"
+  # Intermediate advection-diffusion
+  - name: "ej_eps010_iga"
+    SOLVERS: ["iga"]
     EPSILON: 0.1
-    EPOCHS: 10000
     IGA_METHOD: "supg"
     IGA_MESH_TYPE: "uniform"
 
-  # Strong advection-diffusion (eps = 0.01)
-  - name: "ej_eps001_supg"
+  # Strong advection-diffusion
+  - name: "ej_eps001_supg_iga"
+    SOLVERS: ["iga"]
     EPSILON: 0.01
-    EPOCHS: 12500
     IGA_METHOD: "supg"
     IGA_MESH_TYPE: "uniform"
 
-  - name: "ej_eps001_igrm"
+  - name: "ej_eps001_igrm_iga"
+    SOLVERS: ["iga"]
     EPSILON: 0.01
-    EPOCHS: 12500
     IGA_METHOD: "igrm"
     IGA_MESH_TYPE: "uniform"
 
-  # Highly advection-dominated boundary layer (eps = 0.001)
-  - name: "ej_eps0001_supg"
+  # Highly advection-dominated boundary layer
+  - name: "ej_eps0001_supg_iga"
+    SOLVERS: ["iga"]
     EPSILON: 0.001
-    EPOCHS: 15000
-    KAN_EPOCHS: 8000
     IGA_METHOD: "supg"
     IGA_MESH_TYPE: "adaptive"
     IGA_ADAPTIVE_GAMMA: 3.5
 
-  - name: "ej_eps0001_igrm"
+  - name: "ej_eps0001_igrm_iga"
+    SOLVERS: ["iga"]
     EPSILON: 0.001
-    EPOCHS: 15000
-    KAN_EPOCHS: 8000
     IGA_METHOD: "igrm"
     IGA_MESH_TYPE: "adaptive"
     IGA_ADAPTIVE_GAMMA: 3.5

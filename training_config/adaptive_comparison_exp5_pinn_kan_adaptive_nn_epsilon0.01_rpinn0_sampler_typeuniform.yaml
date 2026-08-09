@@ -1,3 +1,5 @@
+SOLVERS:
+- pinn
+- kan
 SAMPLER_GAMMA: 3.0
-IGA_METHOD: supg
 RPINN: 0

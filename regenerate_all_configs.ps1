@@ -1,0 +1,1 @@
+Get-ChildItem sweeps\*.yaml | ForEach-Object { python manage_configs.py $_.FullName --force }

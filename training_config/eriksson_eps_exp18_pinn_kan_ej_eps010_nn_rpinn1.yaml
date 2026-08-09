@@ -1,0 +1,4 @@
+SOLVERS:
+- pinn
+- kan
+EPSILON: 0.1

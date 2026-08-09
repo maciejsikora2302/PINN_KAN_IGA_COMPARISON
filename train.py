@@ -13,7 +13,9 @@ def main():
     parser = argparse.ArgumentParser(description="Run PINN, KAN, and IGA solvers based on a YAML configuration.")
     parser.add_argument("--config", type=str, help="Configuration filename or path.")
     parser.add_argument("config_pos", type=str, nargs="?", help="Configuration filename or path (positional).")
-    parser.add_argument("--fast", nargs="?", const=5.0, type=float, help="Stop training if wall-clock time in minutes is exceeded.")
+    parser.add_argument("--wall-time", nargs="?", const=5.0, type=float, help="Stop training if wall-clock time in minutes is exceeded.")
+    parser.add_argument("--solvers", type=str, nargs="+", help="Specify which solvers to run (pinn, kan, iga). Overrides YAML config.")
+    parser.add_argument("--skip-existing", action="store_true", help="Skip running solvers whose outputs (.npz files) already exist.")
     args = parser.parse_args()
 
     config_filename = args.config if args.config else args.config_pos
@@ -29,46 +31,86 @@ def main():
         if not os.path.exists(config_path):
             raise FileNotFoundError(f"Configuration file not found: {config_filename} or {config_path}")
 
+    # Load base config to read default solvers
+    from config import SharedConfig
+    base_config = SharedConfig()
+    base_config.load_config(config_path)
+
+    # Determine active solvers
+    if args.solvers:
+        active_solvers = [s.lower() for s in args.solvers]
+    else:
+        active_solvers = [s.lower() for s in getattr(base_config, "SOLVERS", ["pinn", "kan", "iga"])]
+
     # Determine subfolder name based on config file basename without extension
     config_name = os.path.splitext(os.path.basename(config_path))[0]
     output_dir = os.path.join("output", config_name)
     os.makedirs(output_dir, exist_ok=True)
 
+    # Handle skip-existing logic
+    if args.skip_existing:
+        skipped = []
+        filtered_solvers = []
+        for s in active_solvers:
+            if os.path.exists(os.path.join(output_dir, f"{s}.npz")):
+                skipped.append(s)
+            else:
+                filtered_solvers.append(s)
+        if skipped:
+            print(f"Skipping existing solver outputs: {', '.join(skipped)}")
+        active_solvers = filtered_solvers
+
+    if not active_solvers:
+        print("No active solvers left to run. Exiting.")
+        return
+
     print(f"=== Starting Solver Run for Configuration: {config_name} ===")
     print(f"Config path: {config_path}")
-    print(f"Output folder: {output_dir}\n")
+    print(f"Output folder: {output_dir}")
+    print(f"Active solvers: {', '.join(active_solvers)}\n")
 
     # Record start time & date
     start_date = time.strftime("%Y-%m-%d %H:%M:%S")
     start_time_total = time.time()
 
+    pinn_solver = None
+    kan_solver = None
+    iga_solver = None
+
+    elapsed_pinn = 0.0
+    elapsed_kan = 0.0
+    elapsed_iga = 0.0
+
     # Run PINN
-    print("--- Running PINN Solver ---")
-    start_time_pinn = time.time()
-    pinn_solver = PINNExperiment(config_path)
-    if args.fast is not None:
-        pinn_solver.wall_time_limit = args.fast * 60.0
-    pinn_solver.train()
-    pinn_solver.save_outcomes(os.path.join(output_dir, "pinn.npz"))
-    elapsed_pinn = time.time() - start_time_pinn
+    if "pinn" in active_solvers:
+        print("--- Running PINN Solver ---")
+        start_time_pinn = time.time()
+        pinn_solver = PINNExperiment(config_path)
+        if args.wall_time is not None:
+            pinn_solver.wall_time_limit = args.wall_time * 60.0
+        pinn_solver.train()
+        pinn_solver.save_outcomes(os.path.join(output_dir, "pinn.npz"))
+        elapsed_pinn = time.time() - start_time_pinn
 
     # Run KAN Solver
-    print("\n--- Running KAN Solver ---")
-    start_time_kan = time.time()
-    kan_solver = KANExperiment(config_path)
-    if args.fast is not None:
-        kan_solver.wall_time_limit = args.fast * 60.0
-    kan_solver.train()
-    kan_solver.save_outcomes(os.path.join(output_dir, "kan.npz"))
-    elapsed_kan = time.time() - start_time_kan
+    if "kan" in active_solvers:
+        print("\n--- Running KAN Solver ---")
+        start_time_kan = time.time()
+        kan_solver = KANExperiment(config_path)
+        if args.wall_time is not None:
+            kan_solver.wall_time_limit = args.wall_time * 60.0
+        kan_solver.train()
+        kan_solver.save_outcomes(os.path.join(output_dir, "kan.npz"))
+        elapsed_kan = time.time() - start_time_kan
 
     # Run IGA Solver
-    print("\n--- Running IGA Solver ---")
-    start_time_iga = time.time()
-    iga_solver = IGAExperiment(config_path)
-    iga_solver.train()
-    iga_solver.save_outcomes(os.path.join(output_dir, "iga.npz"))
-    elapsed_iga = time.time() - start_time_iga
+    if "iga" in active_solvers:
+        print("\n--- Running IGA Solver ---")
+        start_time_iga = time.time()
+        iga_solver = IGAExperiment(config_path)
+        iga_solver.train()
+        iga_solver.save_outcomes(os.path.join(output_dir, "iga.npz"))
+        elapsed_iga = time.time() - start_time_iga
 
     elapsed_total = time.time() - start_time_total
     print(f"\n=== Solver Runs Completed. Results saved in {output_dir} ===")
@@ -93,9 +135,23 @@ def main():
             return 0
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
+    # Load existing metadata if it exists to preserve results of other solvers
+    metadata_path = os.path.join(output_dir, "metadata.yaml")
+    existing_metadata = {}
+    if os.path.exists(metadata_path):
+        try:
+            with open(metadata_path, "r") as f:
+                existing_metadata = yaml.safe_load(f) or {}
+        except Exception as e:
+            print(f"Warning: Failed to load existing metadata.yaml: {e}")
+
+    existing_results = existing_metadata.get("results", {})
+
     # Compile solver results and complexities
-    solvers_metadata = {
-        "PINN": {
+    solvers_metadata = {}
+
+    if pinn_solver is not None:
+        solvers_metadata["PINN"] = {
             "trainable_parameters": count_parameters(pinn_solver.model),
             "layers": pinn_solver.config.LAYERS,
             "neurons_per_layer": pinn_solver.config.NEURONS_PER_LAYER,
@@ -108,8 +164,12 @@ def main():
             "final_l2_error": float(pinn_solver.final_l2_error) if getattr(pinn_solver, "final_l2_error", None) is not None else None,
             "final_linf_error": float(pinn_solver.final_linf_error) if getattr(pinn_solver, "final_linf_error", None) is not None else None,
             "elapsed_seconds": elapsed_pinn
-        },
-        "KAN": {
+        }
+    elif "PINN" in existing_results:
+        solvers_metadata["PINN"] = existing_results["PINN"]
+
+    if kan_solver is not None:
+        solvers_metadata["KAN"] = {
             "trainable_parameters": count_parameters(kan_solver.model),
             "layers": kan_solver.config.KAN_LAYERS,
             "neurons_per_layer": kan_solver.config.KAN_NEURONS_PER_LAYER,
@@ -122,8 +182,12 @@ def main():
             "final_l2_error": float(kan_solver.final_l2_error) if getattr(kan_solver, "final_l2_error", None) is not None else None,
             "final_linf_error": float(kan_solver.final_linf_error) if getattr(kan_solver, "final_linf_error", None) is not None else None,
             "elapsed_seconds": elapsed_kan
-        },
-        "IGA": {
+        }
+    elif "KAN" in existing_results:
+        solvers_metadata["KAN"] = existing_results["KAN"]
+
+    if iga_solver is not None:
+        solvers_metadata["IGA"] = {
             "method": str(iga_solver.config.IGA_METHOD),
             "mesh_type": str(iga_solver.config.IGA_MESH_TYPE),
             "elements": iga_solver.config.IGA_ELEMENTS,
@@ -135,10 +199,11 @@ def main():
             "final_linf_error": float(iga_solver.final_linf_error) if getattr(iga_solver, "final_linf_error", None) is not None else None,
             "elapsed_seconds": elapsed_iga
         }
-    }
+    elif "IGA" in existing_results:
+        solvers_metadata["IGA"] = existing_results["IGA"]
 
-    # Gather config (use pinn_solver config as reference)
-    config_dict = pinn_solver.config.to_dict()
+    # Gather config
+    config_dict = base_config.to_dict()
 
     metadata = {
         "config": config_dict,
@@ -150,7 +215,6 @@ def main():
         "results": solvers_metadata
     }
 
-    metadata_path = os.path.join(output_dir, "metadata.yaml")
     with open(metadata_path, "w") as f:
         yaml.dump(metadata, f, default_flow_style=False, sort_keys=False)
     print(f"Metadata saved successfully to {metadata_path}")

@@ -22,15 +22,24 @@ sweep:
   RPINN: [0, 1]
 
 scenarios:
-  - name: "poisson_sin"
+  # PINN & KAN solver runs
+  - name: "poisson_sin_nn"
+    SOLVERS: ["pinn", "kan"]
     EXAMPLE: 1
-    EPOCHS: 5000
-    KAN_EPOCHS: 2000
     LEARNING_RATE: 0.001
     KAN_LEARNING_RATE: 0.001
-  - name: "poisson_exp"
+
+  - name: "poisson_exp_nn"
+    SOLVERS: ["pinn", "kan"]
     EXAMPLE: 2
-    EPOCHS: 10000
-    KAN_EPOCHS: 5000
     LEARNING_RATE: 0.0005
     KAN_LEARNING_RATE: 0.001
+
+  # IGA solver runs (independent of neural network RPINN settings)
+  - name: "poisson_sin_iga"
+    SOLVERS: ["iga"]
+    EXAMPLE: 1
+
+  - name: "poisson_exp_iga"
+    SOLVERS: ["iga"]
+    EXAMPLE: 2

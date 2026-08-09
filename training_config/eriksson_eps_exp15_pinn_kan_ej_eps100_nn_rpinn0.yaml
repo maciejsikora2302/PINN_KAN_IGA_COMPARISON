@@ -1,3 +1,5 @@
+SOLVERS:
+- pinn
+- kan
 EPSILON: 1.0
-EPOCHS: 20000
 RPINN: 0

@@ -1,5 +1,5 @@
-SAMPLER_GAMMA: 3.0
+SOLVERS:
+- iga
 IGA_METHOD: igrm
 IGA_MESH_TYPE: adaptive
 IGA_ADAPTIVE_GAMMA: 3.0
-SAMPLER_TYPE: boundary_layer

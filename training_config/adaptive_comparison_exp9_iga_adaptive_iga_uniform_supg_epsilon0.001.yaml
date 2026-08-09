@@ -1,0 +1,4 @@
+SOLVERS:
+- iga
+IGA_METHOD: supg
+EPSILON: 0.001

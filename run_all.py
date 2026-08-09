@@ -9,7 +9,7 @@ def natural_sort_key(filename):
     if "test" in filename.lower():
         is_test_config = 0 if filename == "test_config.yaml" else 1
         return (3, is_test_config, filename)
-    match = re.match(r'^exp(\d+)', filename)
+    match = re.search(r'exp(\d+)', filename)
     if match:
         return (1, int(match.group(1)), filename)
     return (2, 0, filename)
@@ -25,7 +25,9 @@ def main():
 
     parser = argparse.ArgumentParser(description="Run all solver configurations and generate plots.")
     parser.add_argument("--start", "-s", type=str, help="Experiment name, prefix, or number to start from.")
-    parser.add_argument("--fast", nargs="?", const=5.0, type=float, help="Stop training early after a specified wall time in minutes (default 5.0).")
+    parser.add_argument("--wall-time", "-w", nargs="?", const=5.0, type=float, help="Stop training early after a specified wall time in minutes (default 5.0).")
+    parser.add_argument("--solvers", type=str, nargs="+", help="Specify which solvers to run (pinn, kan, iga). Overrides config defaults.")
+    parser.add_argument("--skip-existing", action="store_true", help="Skip running solvers whose outputs (.npz files) already exist.")
     args = parser.parse_args()
 
     # Find all yaml/yml files, skipping common.yaml and original.yaml
@@ -105,8 +107,12 @@ def main():
         print(f"\n--- Running Training for {config} ---")
         train_start = time.time()
         train_cmd = [python_exe, "train.py", "--config", config_path]
-        if args.fast is not None:
-            train_cmd.extend(["--fast", str(args.fast)])
+        if args.wall_time is not None:
+            train_cmd.extend(["--wall-time", str(args.wall_time)])
+        if args.solvers:
+            train_cmd.extend(["--solvers"] + args.solvers)
+        if args.skip_existing:
+            train_cmd.append("--skip-existing")
         train_res = subprocess.run(train_cmd)
         train_time = time.time() - train_start
         

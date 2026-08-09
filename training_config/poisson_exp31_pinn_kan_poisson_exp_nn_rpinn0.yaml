@@ -1,0 +1,5 @@
+SOLVERS:
+- pinn
+- kan
+EXAMPLE: 2
+RPINN: 0

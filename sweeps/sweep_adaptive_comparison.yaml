@@ -1,6 +1,5 @@
 global:
   EXAMPLE: 3
-  EPSILON: 0.01
   LENGTH: 1.0
   TOTAL_TIME: 1.0
   N_POINTS_X: 100
@@ -11,10 +10,6 @@ global:
   KAN_NEURONS_PER_LAYER: 10
   KAN_SPLINE_TYPE: "nurbs"
   ACTIVATION: "tanh"
-  EPOCHS: 20000
-  KAN_EPOCHS: 5000
-  LEARNING_RATE: 0.0005
-  KAN_LEARNING_RATE: 0.001
   IGA_DEGREE: 3
   IGA_ELEMENTS: 32
   H1_CALC_EVERY: 100
@@ -22,21 +17,28 @@ global:
 sweep:
   RPINN: [0, 1]
   SAMPLER_TYPE: ["uniform", "boundary_layer"]
+  EPSILON: [0.001, 0.01]
 
 scenarios:
-  - name: "sampling_uniform_mesh"
+  # Neural Network (PINN & KAN) Solver Runs
+  - name: "adaptive_nn"
+    SOLVERS: ["pinn", "kan"]
     SAMPLER_GAMMA: 3.0
+
+  # IGA Solver Runs (automatically deduplicated across NN-only sweep parameters)
+  - name: "adaptive_iga_uniform_supg"
+    SOLVERS: ["iga"]
     IGA_METHOD: "supg"
     IGA_MESH_TYPE: "uniform"
 
-  - name: "sampling_adaptive_mesh"
-    SAMPLER_GAMMA: 3.0
+  - name: "adaptive_iga_adaptive_supg"
+    SOLVERS: ["iga"]
     IGA_METHOD: "supg"
     IGA_MESH_TYPE: "adaptive"
     IGA_ADAPTIVE_GAMMA: 3.0
 
-  - name: "sampling_adaptive_igrm"
-    SAMPLER_GAMMA: 3.0
+  - name: "adaptive_iga_adaptive_igrm"
+    SOLVERS: ["iga"]
     IGA_METHOD: "igrm"
     IGA_MESH_TYPE: "adaptive"
     IGA_ADAPTIVE_GAMMA: 3.0

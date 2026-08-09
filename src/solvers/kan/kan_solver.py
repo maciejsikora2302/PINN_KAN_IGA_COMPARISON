@@ -235,19 +235,23 @@ class KANExperiment(ExperimentInterface):
     Fully decoupled from specific problem formulas via the PDEProblem strategy pattern.
     """
 
-    def __init__(self, config_path: str | None = None):
+    def __init__(self, config_path: str | None = None, wall_time_limit: float | None = None):
         self.model = None
         self.problem: BasePDEProblem = None
         self.loss_history = []
         self.h1_error_history = []
+        self.h1_time_history = []
+        self.h1_epoch_history = []
+        self.h1_progress_history = []
         self.final_loss = None
         self.final_interior_loss = None
         self.x_grid: Any = None
         self.t_grid: Any = None
         self.final_h1_error = None
-        self.wall_time_limit = None
+        self.wall_time_limit = wall_time_limit
         self.epochs_trained = 0
         self.epochs_total = 0
+        self.elapsed_seconds = 0.0
         super().__init__(config_path)
 
     def load_config(self, config_path: str) -> None:
@@ -289,6 +293,13 @@ class KANExperiment(ExperimentInterface):
             spline_type=spline_type
         ).to(device)
 
+        if hasattr(torch, "compile") and torch.cuda.is_available():
+            try:
+                self.model = torch.compile(self.model)
+                print("KAN model compiled successfully using torch.compile.")
+            except Exception as e:
+                print(f"Warning: torch.compile failed: {e}. Running standard model.")
+
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.KAN_LEARNING_RATE)
 
         def compute_interior_loss(model, x, t):
@@ -309,9 +320,20 @@ class KANExperiment(ExperimentInterface):
 
         self.loss_history = []
         self.h1_error_history = []
+        self.h1_time_history = []
+        self.h1_epoch_history = []
+        self.h1_progress_history = []
 
-        print(f"=== Starting KAN training (Spline Type: {spline_type}) ===")
-        kan_epochs = getattr(self.config, "KAN_EPOCHS", None) or self.config.EPOCHS
+        if self.config.RPINN == 1 and getattr(self.config, "KAN_RPINN_EPOCHS", None) is not None:
+            kan_epochs = self.config.KAN_RPINN_EPOCHS
+        elif getattr(self.config, "KAN_EPOCHS", None) is not None:
+            kan_epochs = self.config.KAN_EPOCHS
+        elif self.config.RPINN == 1 and getattr(self.config, "RPINN_EPOCHS", None) is not None:
+            kan_epochs = self.config.RPINN_EPOCHS
+        else:
+            kan_epochs = self.config.EPOCHS
+
+        print(f"=== Starting KAN training (Spline Type: {spline_type}, RPINN: {self.config.RPINN}, Epochs: {kan_epochs}) ===")
         print_every = max(1, kan_epochs // 200)
         self.epochs_total = kan_epochs
         self.epochs_trained = 0
@@ -326,15 +348,22 @@ class KANExperiment(ExperimentInterface):
             self.model.train()
             optimizer.zero_grad()
 
-            loss_val = compute_interior_loss(self.model, self.x_grid, self.t_grid)
+            use_amp = torch.cuda.is_available()
+            device_type = "cuda" if use_amp else "cpu"
+            with torch.amp.autocast(device_type=device_type, enabled=use_amp, dtype=torch.bfloat16):
+                loss_val = compute_interior_loss(self.model, self.x_grid, self.t_grid)
             loss_val.backward()
             optimizer.step()
 
             self.loss_history.append(float(loss_val.item()))
 
-            if epoch % self.config.H1_CALC_EVERY == 0:
+            if epoch % self.config.H1_CALC_EVERY == 0 or (epoch + 1) == kan_epochs:
+                elapsed_now = time.perf_counter() - start_time
                 h1 = compute_h1_norm(self.model, self.x_grid, self.t_grid)
                 self.h1_error_history.append(h1)
+                self.h1_time_history.append(elapsed_now)
+                self.h1_epoch_history.append(epoch + 1)
+                self.h1_progress_history.append(((epoch + 1) / kan_epochs) * 100.0)
 
             if (epoch + 1) % print_every == 0 or epoch == 0 or (epoch + 1) == kan_epochs:
                 elapsed = time.perf_counter() - start_time
@@ -359,6 +388,7 @@ class KANExperiment(ExperimentInterface):
                 h1_str = f" | H1 Error: {self.h1_error_history[-1]:.6e}" if self.h1_error_history else ""
                 print(f"\rKAN Training: [{bar}] {epoch + 1}/{kan_epochs} ({progress*100:.1f}%) | {el_str} < {eta_str} | Loss: {loss_val.item():.6e}{h1_str}", end="", flush=True)
 
+        self.elapsed_seconds = time.perf_counter() - start_time
         print()
         self.model.eval()
         with torch.no_grad():
@@ -419,6 +449,10 @@ class KANExperiment(ExperimentInterface):
             final_interior_loss=np.array(self.final_interior_loss),
             loss_history=np.array(self.loss_history),
             h1_error_history=np.array(self.h1_error_history),
+            h1_time_history=np.array(self.h1_time_history),
+            h1_epoch_history=np.array(self.h1_epoch_history),
+            h1_progress_history=np.array(self.h1_progress_history),
+            elapsed_seconds=np.array(self.elapsed_seconds),
             final_h1_error=np.array(self.final_h1_error if self.final_h1_error is not None else 0.0),
             final_l2_error=np.array(self.final_l2_error if getattr(self, "final_l2_error", None) is not None else 0.0),
             final_linf_error=np.array(self.final_linf_error if getattr(self, "final_linf_error", None) is not None else 0.0),

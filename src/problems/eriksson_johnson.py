@@ -94,7 +94,7 @@ class ErikssonJohnsonProblem(BasePDEProblem):
     def compute_strong_residual(self, model: Any, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         u_pred = model(x, y)
         u_y = _df(u_pred, y, order=1)
-        u_yy = _df(u_pred, y, order=2)
+        u_yy = _df(u_y, y, order=1)
         u_xx = _df(u_pred, x, order=2)
         
         # Add shift terms

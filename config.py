@@ -32,8 +32,12 @@ class Config:
         if hasattr(self, 'KAN_NEURONS_PER_LAYER') and self.KAN_NEURONS_PER_LAYER is None:
             if self.NEURONS_PER_LAYER is not None:
                 self.KAN_NEURONS_PER_LAYER = max(5, self.NEURONS_PER_LAYER // 5)
+        if hasattr(self, 'RPINN_EPOCHS') and getattr(self, 'RPINN_EPOCHS', None) is None:
+            self.RPINN_EPOCHS = getattr(self, 'EPOCHS', None)
         if hasattr(self, 'KAN_EPOCHS') and getattr(self, 'KAN_EPOCHS', None) is None:
             self.KAN_EPOCHS = getattr(self, 'EPOCHS', None)
+        if hasattr(self, 'KAN_RPINN_EPOCHS') and getattr(self, 'KAN_RPINN_EPOCHS', None) is None:
+            self.KAN_RPINN_EPOCHS = getattr(self, 'KAN_EPOCHS', None)
         if hasattr(self, 'KAN_LEARNING_RATE') and getattr(self, 'KAN_LEARNING_RATE', None) is None:
             self.KAN_LEARNING_RATE = getattr(self, 'LEARNING_RATE', None)
 
@@ -72,7 +76,9 @@ class SharedConfig(Config):
         self.KAN_LAYERS = None
         self.KAN_NEURONS_PER_LAYER = None
         self.EPOCHS = None
+        self.RPINN_EPOCHS = None
         self.KAN_EPOCHS = None
+        self.KAN_RPINN_EPOCHS = None
         self.LEARNING_RATE = None
         self.KAN_LEARNING_RATE = None
         self.RPINN = None
@@ -93,6 +99,7 @@ class SharedConfig(Config):
         self.KAN_SPLINE_ORDER = 3
         self.SAMPLER_TYPE = "uniform"
         self.SAMPLER_GAMMA = 3.0
+        self.SOLVERS = ["pinn", "kan", "iga"]
 
     def assign_from_args(self, args):
         # Assign arguments to CONFIG namespace
@@ -105,7 +112,9 @@ class SharedConfig(Config):
         self.KAN_LAYERS = args.kan_layers if hasattr(args, 'kan_layers') and args.kan_layers is not None else self.KAN_LAYERS
         self.KAN_NEURONS_PER_LAYER = args.kan_neurons_per_layer if hasattr(args, 'kan_neurons_per_layer') and args.kan_neurons_per_layer is not None else self.KAN_NEURONS_PER_LAYER
         self.EPOCHS = args.epochs if hasattr(args, 'epochs') and args.epochs is not None else self.EPOCHS
+        self.RPINN_EPOCHS = args.rpinn_epochs if hasattr(args, 'rpinn_epochs') and args.rpinn_epochs is not None else self.RPINN_EPOCHS
         self.KAN_EPOCHS = args.kan_epochs if hasattr(args, 'kan_epochs') and args.kan_epochs is not None else self.KAN_EPOCHS
+        self.KAN_RPINN_EPOCHS = args.kan_rpinn_epochs if hasattr(args, 'kan_rpinn_epochs') and args.kan_rpinn_epochs is not None else self.KAN_RPINN_EPOCHS
         self.LEARNING_RATE = args.learning_rate if hasattr(args, 'learning_rate') and args.learning_rate is not None else self.LEARNING_RATE
         self.KAN_LEARNING_RATE = args.kan_learning_rate if hasattr(args, 'kan_learning_rate') and args.kan_learning_rate is not None else self.KAN_LEARNING_RATE
         self.RPINN = args.rpinn if hasattr(args, 'rpinn') and args.rpinn is not None else self.RPINN
@@ -126,6 +135,7 @@ class SharedConfig(Config):
         self.KAN_SPLINE_ORDER = args.kan_spline_order if hasattr(args, 'kan_spline_order') and args.kan_spline_order is not None else self.KAN_SPLINE_ORDER
         self.SAMPLER_TYPE = args.sampler_type if hasattr(args, 'sampler_type') and args.sampler_type is not None else self.SAMPLER_TYPE
         self.SAMPLER_GAMMA = args.sampler_gamma if hasattr(args, 'sampler_gamma') and args.sampler_gamma is not None else self.SAMPLER_GAMMA
+        self.SOLVERS = args.solvers if hasattr(args, 'solvers') and args.solvers is not None else self.SOLVERS
 
 
 class PINNConfig(SharedConfig):

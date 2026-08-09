@@ -1,2 +1,3 @@
+SOLVERS:
+- iga
 IGA_METHOD: igrm
-RPINN: 0

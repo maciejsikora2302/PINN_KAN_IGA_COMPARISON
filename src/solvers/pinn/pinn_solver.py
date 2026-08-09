@@ -66,19 +66,23 @@ class PINNExperiment(ExperimentInterface):
     Fully decoupled from specific problem formulas via the PDEProblem strategy pattern.
     """
 
-    def __init__(self, config_path: str | None = None):
+    def __init__(self, config_path: str | None = None, wall_time_limit: float | None = None):
         self.model = None
         self.problem: BasePDEProblem = None
         self.loss_history = []
         self.h1_error_history = []
+        self.h1_time_history = []
+        self.h1_epoch_history = []
+        self.h1_progress_history = []
         self.final_loss = None
         self.final_interior_loss = None
         self.x_grid: Any = None
         self.t_grid: Any = None
         self.final_h1_error = None
-        self.wall_time_limit = None
+        self.wall_time_limit = wall_time_limit
         self.epochs_trained = 0
         self.epochs_total = 0
+        self.elapsed_seconds = 0.0
         super().__init__(config_path)
 
     def load_config(self, config_path: str) -> None:
@@ -125,6 +129,13 @@ class PINNExperiment(ExperimentInterface):
             pinning=True
         ).to(device)
 
+        if hasattr(torch, "compile") and torch.cuda.is_available():
+            try:
+                self.model = torch.compile(self.model)
+                print("PINN model compiled successfully using torch.compile.")
+            except Exception as e:
+                print(f"Warning: torch.compile failed: {e}. Running standard model.")
+
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.LEARNING_RATE)
 
         # Loss function closure using PDEProblem strategy pattern
@@ -150,14 +161,22 @@ class PINNExperiment(ExperimentInterface):
 
         self.loss_history = []
         self.h1_error_history = []
+        self.h1_time_history = []
+        self.h1_epoch_history = []
+        self.h1_progress_history = []
 
-        print(f"=== Starting training for activation: {self.config.ACTIVATION} ===")
-        print_every = max(1, self.config.EPOCHS // 200)
-        self.epochs_total = self.config.EPOCHS
+        if self.config.RPINN == 1 and getattr(self.config, "RPINN_EPOCHS", None) is not None:
+            pinn_epochs = self.config.RPINN_EPOCHS
+        else:
+            pinn_epochs = self.config.EPOCHS
+
+        print(f"=== Starting PINN training (RPINN: {self.config.RPINN}, Epochs: {pinn_epochs}, Activation: {self.config.ACTIVATION}) ===")
+        print_every = max(1, pinn_epochs // 200)
+        self.epochs_total = pinn_epochs
         self.epochs_trained = 0
         start_time = time.perf_counter()
 
-        for epoch in range(self.config.EPOCHS):
+        for epoch in range(pinn_epochs):
             self.epochs_trained = epoch + 1
             if self.wall_time_limit is not None and (time.perf_counter() - start_time) > self.wall_time_limit:
                 print(f"\n[Wall Clock Limit Breached] Stopping PINN training early at epoch {self.epochs_trained}")
@@ -166,19 +185,26 @@ class PINNExperiment(ExperimentInterface):
             self.model.train()
             optimizer.zero_grad()
 
-            loss_val = compute_interior_loss(self.model, self.x_grid, self.t_grid)
+            use_amp = torch.cuda.is_available()
+            device_type = "cuda" if use_amp else "cpu"
+            with torch.amp.autocast(device_type=device_type, enabled=use_amp, dtype=torch.bfloat16):
+                loss_val = compute_interior_loss(self.model, self.x_grid, self.t_grid)
             loss_val.backward()
             optimizer.step()
 
             self.loss_history.append(float(loss_val.item()))
 
-            if epoch % self.config.H1_CALC_EVERY == 0:
+            if epoch % self.config.H1_CALC_EVERY == 0 or (epoch + 1) == pinn_epochs:
+                elapsed_now = time.perf_counter() - start_time
                 h1 = compute_h1_norm(self.model, self.x_grid, self.t_grid)
                 self.h1_error_history.append(h1)
+                self.h1_time_history.append(elapsed_now)
+                self.h1_epoch_history.append(epoch + 1)
+                self.h1_progress_history.append(((epoch + 1) / pinn_epochs) * 100.0)
 
-            if (epoch + 1) % print_every == 0 or epoch == 0 or (epoch + 1) == self.config.EPOCHS:
+            if (epoch + 1) % print_every == 0 or epoch == 0 or (epoch + 1) == pinn_epochs:
                 elapsed = time.perf_counter() - start_time
-                progress = (epoch + 1) / self.config.EPOCHS
+                progress = (epoch + 1) / pinn_epochs
 
                 el_min, el_sec = divmod(int(elapsed), 60)
                 el_hr, el_min = divmod(el_min, 60)
@@ -197,8 +223,9 @@ class PINNExperiment(ExperimentInterface):
                 bar = '=' * filled_len + '>' + '.' * (bar_len - filled_len - 1)
                 bar = bar[:bar_len]
                 h1_str = f" | H1 Error: {self.h1_error_history[-1]:.6e}" if self.h1_error_history else ""
-                print(f"\rPINN Training: [{bar}] {epoch + 1}/{self.config.EPOCHS} ({progress*100:.1f}%) | {el_str} < {eta_str} | Loss: {loss_val.item():.6e}{h1_str}", end="", flush=True)
+                print(f"\rPINN Training: [{bar}] {epoch + 1}/{pinn_epochs} ({progress*100:.1f}%) | {el_str} < {eta_str} | Loss: {loss_val.item():.6e}{h1_str}", end="", flush=True)
 
+        self.elapsed_seconds = time.perf_counter() - start_time
         print()
         self.model.eval()
         with torch.no_grad():
@@ -243,6 +270,10 @@ class PINNExperiment(ExperimentInterface):
             final_interior_loss=np.array(self.final_interior_loss),
             loss_history=np.array(self.loss_history),
             h1_error_history=np.array(self.h1_error_history),
+            h1_time_history=np.array(self.h1_time_history),
+            h1_epoch_history=np.array(self.h1_epoch_history),
+            h1_progress_history=np.array(self.h1_progress_history),
+            elapsed_seconds=np.array(self.elapsed_seconds),
             final_h1_error=np.array(self.final_h1_error if self.final_h1_error is not None else 0.0),
             final_l2_error=np.array(self.final_l2_error if getattr(self, "final_l2_error", None) is not None else 0.0),
             final_linf_error=np.array(self.final_linf_error if getattr(self, "final_linf_error", None) is not None else 0.0),
