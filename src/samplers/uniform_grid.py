@@ -1,7 +1,9 @@
-from typing import Tuple, Any, Optional
+from typing import Any
+
 import torch
 
 from .base import CollocationSampler
+
 
 class UniformGridSampler(CollocationSampler):
     """
@@ -9,7 +11,7 @@ class UniformGridSampler(CollocationSampler):
     Also builds standard 5-point discrete negative Laplacian matrix G for RPINN.
     """
 
-    def sample_points(self, n_points_x: int, n_points_t: int, length: float = 1.0, total_time: float = 1.0, device: Any = "cpu") -> Tuple[torch.Tensor, torch.Tensor]:
+    def sample_points(self, n_points_x: int, n_points_t: int, length: float = 1.0, total_time: float = 1.0, device: Any = "cpu") -> tuple[torch.Tensor, torch.Tensor]:
         x_domain = [0.0, length]
         t_domain = [0.0, total_time]
 
@@ -22,7 +24,7 @@ class UniformGridSampler(CollocationSampler):
 
         return x_grid, t_grid
 
-    def build_gram_matrix(self, n_points_x: int, n_points_t: int, length: float = 1.0, total_time: float = 1.0, device: Any = "cpu") -> Optional[Any]:
+    def build_gram_matrix(self, n_points_x: int, n_points_t: int, length: float = 1.0, total_time: float = 1.0, device: Any = "cpu") -> Any | None:
         G = torch.eye(n_points_x * n_points_t)
 
         def linearized(ix, iy):

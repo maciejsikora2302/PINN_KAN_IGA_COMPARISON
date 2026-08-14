@@ -1,9 +1,11 @@
 from typing import Any
+
 import numpy as np
 import torch
 
 from .base import BasePDEProblem
 from .poisson_sine import _df
+
 
 class PoissonExpProblem(BasePDEProblem):
     """

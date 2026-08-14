@@ -1,8 +1,10 @@
 import os
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, List, Optional
+from dataclasses import asdict, dataclass, field
+from typing import Any
+
 import numpy as np
+
 
 @dataclass
 class SolverMetrics:
@@ -19,7 +21,7 @@ class SolverMetrics:
     epochs_trained: int
     epochs_total: int
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -31,13 +33,13 @@ class SolverOutcome:
     x_grid: np.ndarray
     t_grid: np.ndarray
     z_pred: np.ndarray
-    loss_history: List[float]
-    h1_error_history: List[float]
-    h1_time_history: List[float]
-    h1_epoch_history: List[int]
-    h1_progress_history: List[float]
+    loss_history: list[float]
+    h1_error_history: list[float]
+    h1_time_history: list[float]
+    h1_epoch_history: list[int]
+    h1_progress_history: list[float]
     metrics: SolverMetrics
-    extra_data: Dict[str, Any] = field(default_factory=dict)
+    extra_data: dict[str, Any] = field(default_factory=dict)
 
     # Convenience properties delegating to metrics
     @property
@@ -93,14 +95,13 @@ class ExperimentInterface(ABC):
 
     def __init__(self, config_path: str | None = None):
         self.config: Any = None
-        self.outcome: Optional[SolverOutcome] = None
+        self.outcome: SolverOutcome | None = None
         if config_path:
             self.load_config(config_path)
 
     @abstractmethod
     def load_config(self, config_path: str) -> None:
         """Loads configuration settings from a YAML file."""
-        pass
 
     @abstractmethod
     def train(self) -> SolverOutcome:
@@ -108,12 +109,10 @@ class ExperimentInterface(ABC):
         Performs the training loop or runs the physics simulation.
         Returns a strongly-typed SolverOutcome dataclass instance.
         """
-        pass
 
     @abstractmethod
     def save_model(self, path: str) -> None:
         """Saves the model weights/parameters/state to a file."""
-        pass
 
     def save_outcomes(self, path: str) -> None:
         """Saves the outcome/results/metrics of the simulation to a file."""

@@ -1,6 +1,7 @@
 import torch
-from src.solvers.pinn import PINNExperiment, PINN, f, df, dfdx, dfdt
+
 from src.problems import get_problem
+from src.solvers.pinn import PINN, PINNExperiment, df, dfdt, dfdx, f
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -75,21 +76,21 @@ def shift_EJ_dt2(x, t) -> torch.Tensor:
     return res
 
 __all__ = [
-    "PINNExperiment",
     "PINN",
-    "f",
-    "df",
-    "dfdx",
-    "dfdt",
-    "exact_solution",
-    "exact_solution_dx",
-    "exact_solution_dt",
-    "exact_solution_dx2",
-    "exact_solution_dt2",
-    "shift_EJ",
-    "shift_EJ_dx",
-    "shift_EJ_dt",
-    "shift_EJ_dx2",
-    "shift_EJ_dt2",
+    "PINNExperiment",
     "device",
+    "df",
+    "dfdt",
+    "dfdx",
+    "exact_solution",
+    "exact_solution_dt",
+    "exact_solution_dt2",
+    "exact_solution_dx",
+    "exact_solution_dx2",
+    "f",
+    "shift_EJ",
+    "shift_EJ_dt",
+    "shift_EJ_dt2",
+    "shift_EJ_dx",
+    "shift_EJ_dx2",
 ]

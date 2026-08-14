@@ -1,10 +1,10 @@
-from .pinn_solver import PINNExperiment, PINN, f, df, dfdx, dfdt
+from .pinn_solver import PINN, PINNExperiment, df, dfdt, dfdx, f
 
 __all__ = [
-    "PINNExperiment",
     "PINN",
-    "f",
+    "PINNExperiment",
     "df",
-    "dfdx",
     "dfdt",
+    "dfdx",
+    "f",
 ]

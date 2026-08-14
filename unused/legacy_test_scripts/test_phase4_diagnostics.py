@@ -1,12 +1,14 @@
-import unittest
 import os
 import tempfile
+import unittest
+
 import numpy as np
 import yaml
 
-from visualizer import Visualizer
 from src.problems import get_problem
 from src.solvers.iga import BaseIGASolver
+from visualizer import Visualizer
+
 
 class TestPhase4Diagnostics(unittest.TestCase):
 

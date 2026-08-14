@@ -1,10 +1,12 @@
 import math
 from abc import ABC, abstractmethod
-from typing import Tuple, Any, List, Optional
+from dataclasses import dataclass
+from typing import Any
+
 import numpy as np
 
-from dataclasses import dataclass
 from src.problems.base import BasePDEProblem
+
 
 @dataclass
 class IGAMetrics:
@@ -21,8 +23,8 @@ class IGASolution:
     t_grid: np.ndarray
     z_pred: np.ndarray
     metrics: IGAMetrics
-    dzdx_approx: Optional[np.ndarray] = None
-    dzdt_approx: Optional[np.ndarray] = None
+    dzdx_approx: np.ndarray | None = None
+    dzdt_approx: np.ndarray | None = None
 
     @property
     def h1_error(self) -> float:
@@ -132,12 +134,12 @@ class BaseIGASolver(ABC):
         return np.concatenate([np.zeros(p + 1), internal_knots, np.ones(p + 1)])
 
     @staticmethod
-    def get_quadrature(p: int) -> Tuple[np.ndarray, np.ndarray]:
+    def get_quadrature(p: int) -> tuple[np.ndarray, np.ndarray]:
         """Returns p+1 Legendre-Gauss quadrature points and weights on [-1, 1]."""
         return np.polynomial.legendre.leggauss(p + 1)
 
     @staticmethod
-    def get_element_spans(knots: np.ndarray) -> List[Tuple[float, float, int]]:
+    def get_element_spans(knots: np.ndarray) -> list[tuple[float, float, int]]:
         """Extracts active non-empty element spans (left, right, knot_index)."""
         spans = []
         for i in range(len(knots) - 1):
@@ -145,7 +147,7 @@ class BaseIGASolver(ABC):
                 spans.append((knots[i], knots[i+1], i))
         return spans
 
-    def apply_dirichlet_bc(self, K_sparse: Any, F: np.ndarray, n_x: int, n_t: int) -> Tuple[Any, np.ndarray]:
+    def apply_dirichlet_bc(self, K_sparse: Any, F: np.ndarray, n_x: int, n_t: int) -> tuple[Any, np.ndarray]:
         """Applies Dirichlet boundary conditions by setting boundary control points to 0."""
         N_dofs = n_x * n_t
         is_boundary = np.zeros(N_dofs, dtype=bool)
@@ -175,7 +177,7 @@ class BaseIGASolver(ABC):
         p_t: int,
         n_x: int,
         n_t: int
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Fast tensor-product B-spline evaluation: U = B_X C B_T^T.
         Computes 2D solution and derivatives in sub-millisecond vectorized matrix multiplications.
@@ -214,7 +216,7 @@ class BaseIGASolver(ABC):
         p_t: int,
         n_t: int,
         optimized: bool = False
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Evaluates u_h(x, y), du_h/dx, du_h/dy at grid points.
         Returns (z_pred, dzdx_approx, dzdt_approx).
@@ -323,4 +325,3 @@ class BaseIGASolver(ABC):
         Solves the PDE problem.
         Returns an IGASolution dataclass instance containing all solution grids, coefficients, and metrics.
         """
-        pass

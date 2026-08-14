@@ -8,9 +8,10 @@ Usage:
     python plot_problem_comparisons.py --problem-dir output/poisson_sine
 """
 
+import argparse
 import os
 import sys
-import argparse
+
 from src.visualization.problem_comparison import ProblemComparator
 
 

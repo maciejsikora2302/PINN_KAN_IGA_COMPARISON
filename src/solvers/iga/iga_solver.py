@@ -1,15 +1,15 @@
-import os
 import math
+import os
+from functools import lru_cache
+
 import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
-from typing import Optional
 
-from model import ExperimentInterface, SolverMetrics, SolverOutcome
 from config import IGAConfig
-from src.problems import get_problem, BasePDEProblem
+from model import ExperimentInterface, SolverMetrics, SolverOutcome
+from src.problems import BasePDEProblem, get_problem
 
-from functools import lru_cache
 
 @lru_cache(maxsize=10240)
 def bspline_basis_single_cached(i: int, p: int, knots: tuple, x: float) -> float:
@@ -75,7 +75,7 @@ class IGAExperiment(ExperimentInterface):
 
     def __init__(self, config_path: str | None = None):
         self.sol_coeffs = None
-        self.problem: Optional[BasePDEProblem] = None
+        self.problem: BasePDEProblem | None = None
         self.loss_history = []
         self.h1_error_history = []
         self.final_loss = None

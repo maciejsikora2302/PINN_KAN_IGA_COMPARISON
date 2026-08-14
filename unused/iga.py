@@ -1,9 +1,9 @@
 from src.solvers.iga import (
-    IGAExperiment,
     BaseIGASolver,
+    IGAExperiment,
+    ResidualMinimizationIGASolver,
     StandardIGASolver,
     SUPGIGASolver,
-    ResidualMinimizationIGASolver,
     bspline_basis,
     bspline_basis_deriv,
 )
@@ -11,11 +11,11 @@ from src.solvers.iga import (
 open_knot_vector = BaseIGASolver.open_uniform_knots
 
 __all__ = [
-    "IGAExperiment",
     "BaseIGASolver",
-    "StandardIGASolver",
-    "SUPGIGASolver",
+    "IGAExperiment",
     "ResidualMinimizationIGASolver",
+    "SUPGIGASolver",
+    "StandardIGASolver",
     "bspline_basis",
     "bspline_basis_deriv",
     "open_knot_vector",

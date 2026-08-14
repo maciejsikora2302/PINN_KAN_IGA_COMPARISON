@@ -7,6 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.solvers.pinn import PINNExperiment
 from visualizer import Visualizer
 
+
 def main():
     print("=== Testing PINNExperiment ===")
     config_path = os.path.join(os.path.dirname(__file__), "pinn_test_config.yaml")

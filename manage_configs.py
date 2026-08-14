@@ -1,20 +1,22 @@
 import os
 import sys
-import yaml
-from typing import Any, Dict, List
+from typing import Any
 
-def load_yaml(path: str) -> Dict[str, Any]:
+import yaml
+
+
+def load_yaml(path: str) -> dict[str, Any]:
     if not os.path.exists(path):
         return {}
     with open(path, "r") as f:
         return yaml.safe_load(f) or {}
 
-def save_yaml(path: str, data: Dict[str, Any]) -> None:
+def save_yaml(path: str, data: dict[str, Any]) -> None:
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     with open(path, "w") as f:
         yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
-def generate_configs_from_matrix(matrix_path: str, base_out_dir: str = "training_config") -> List[str]:
+def generate_configs_from_matrix(matrix_path: str, base_out_dir: str = "training_config") -> list[str]:
     """
     Parses a declarative benchmark/test sweep matrix YAML and compiles clean,
     single-run configuration files structured by problem.
@@ -58,7 +60,7 @@ def generate_configs_from_matrix(matrix_path: str, base_out_dir: str = "training
             config_filepath = os.path.join(target_dir, config_filename)
 
             # Combine global defaults -> problem specs -> method specs
-            combined: Dict[str, Any] = {}
+            combined: dict[str, Any] = {}
             for k, v in global_params.items():
                 combined[k] = v
             for k, v in prob.items():

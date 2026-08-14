@@ -1,12 +1,12 @@
-from .pinn import PINNExperiment, PINN
-from .kan import KANExperiment, KANModel, KAN
 from .iga import IGAExperiment
+from .kan import KAN, KANExperiment, KANModel
+from .pinn import PINN, PINNExperiment
 
 __all__ = [
-    "PINNExperiment",
+    "KAN",
     "PINN",
+    "IGAExperiment",
     "KANExperiment",
     "KANModel",
-    "KAN",
-    "IGAExperiment",
+    "PINNExperiment",
 ]

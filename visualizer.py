@@ -1,7 +1,9 @@
 import os
+from typing import Any
+
 import matplotlib.pyplot as plt
 import numpy as np
-from typing import List, Union, Any, Optional
+
 
 class Visualizer:
     """
@@ -11,12 +13,12 @@ class Visualizer:
         pass
 
     def plot(self, 
-             x: Union[List[float], Any], 
-             y: Union[List[float], Any], 
+             x: list[float] | Any, 
+             y: list[float] | Any, 
              title: str = "Simulation Plot", 
              xlabel: str = "X", 
              ylabel: str = "Y", 
-             save_path: Optional[str] = None) -> None:
+             save_path: str | None = None) -> None:
         """
         What:
             Plots a simple 1D line graph given X and Y coordinates.
@@ -45,7 +47,7 @@ class Visualizer:
                         xlabel: str = "X",
                         ylabel: str = "Y",
                         log_scale: bool = False,
-                        save_path: Optional[str] = None) -> None:
+                        save_path: str | None = None) -> None:
         """
         What:
             Plots multiple curves overlaid on the same 1D graph.
@@ -85,7 +87,7 @@ class Visualizer:
                                 title: str = "Prediction Contour",
                                 xlabel: str = "X",
                                 ylabel: str = "T",
-                                save_path: Optional[str] = None) -> None:
+                                save_path: str | None = None) -> None:
         """
         What:
             Generates a 2D color contour plot from scattered data using spatial triangulation.
@@ -120,7 +122,7 @@ class Visualizer:
                              title: str = "Loss function (running average)",
                              xlabel: str = "Epoch",
                              ylabel: str = "Loss",
-                             save_path: Optional[str] = None) -> None:
+                             save_path: str | None = None) -> None:
         """
         What:
             Plots the raw epoch loss along with its moving average (running average) 
@@ -162,7 +164,7 @@ class Visualizer:
                            epsilon: float,
                            rpinn: int,
                            title: str = "Loss vs error",
-                           save_path: Optional[str] = None) -> None:
+                           save_path: str | None = None) -> None:
         """
         What:
             Plots the PDE loss (represented as `sqrt(loss)`) alongside the H1 validation error 
@@ -214,7 +216,7 @@ class Visualizer:
                     title: str = "PINN solution",
                     xlabel: str = "x",
                     ylabel: str = "t",
-                    save_path: Optional[str] = None) -> None:
+                    save_path: str | None = None) -> None:
         """
         What:
             Generates a structured 2D pseudocolor plot (pcolor) from reshaped spatial-temporal matrices.
@@ -255,7 +257,7 @@ class Visualizer:
                         xlabel: str = "t",
                         ylabel: str = "x",
                         zlabel: str = "value",
-                        save_path: Optional[str] = None) -> None:
+                        save_path: str | None = None) -> None:
         """
         What:
             Generates a structured 3D surface plot from reshaped spatial-temporal matrices.
@@ -293,7 +295,7 @@ class Visualizer:
                                num_coeffs: np.ndarray,
                                den_coeffs: np.ndarray,
                                title: str = "Learnable Rational Activation",
-                               save_path: Optional[str] = None) -> None:
+                               save_path: str | None = None) -> None:
         """
         What:
             Plots the learned rational function R(x) = P(x) / (1 + |Q(x)|) over a range of inputs.
@@ -340,7 +342,7 @@ class Visualizer:
                       x: np.ndarray,
                       y: np.ndarray,
                       title: str = "KAN Edge Activation",
-                      save_path: Optional[str] = None) -> None:
+                      save_path: str | None = None) -> None:
         """
         Plots a single 1D KAN edge activation function.
         """
@@ -365,7 +367,7 @@ class Visualizer:
                             x: np.ndarray,
                             phi: np.ndarray,  # shape (out_features, in_features, N_eval)
                             title: str = "KAN Layer Grid Activations",
-                            save_path: Optional[str] = None) -> None:
+                            save_path: str | None = None) -> None:
         """
         Plots all KAN edge activations for a layer in a grid layout (out_features x in_features).
         """
@@ -425,8 +427,8 @@ class Visualizer:
                                predictions: dict[str, dict[str, Any]],
                                example: int,
                                epsilon: float,
-                               t_slices: List[float] = [0.25, 0.5, 0.75],
-                               save_path: Optional[str] = None) -> None:
+                               t_slices: list[float] = [0.25, 0.5, 0.75],
+                               save_path: str | None = None) -> None:
         """
         What:
             Plots 1D slices of predictions from multiple solvers (PINN, KAN, IGA)
@@ -504,7 +506,7 @@ class Visualizer:
                            n_points_x: int,
                            n_points_t: int,
                            title: str = "3D Solution Comparison",
-                           save_path: Optional[str] = None) -> None:
+                           save_path: str | None = None) -> None:
         """
         What:
             Generates a multi-panel 3D surface plot comparing the predictions of 
@@ -568,7 +570,7 @@ class Visualizer:
         epsilon: float = 0.01,
         x_cut: float = 0.5,
         title: str = "Boundary Layer Profile (Cut at x=0.5)",
-        save_path: Optional[str] = None
+        save_path: str | None = None
     ) -> None:
         """
         Plots 1D cut-slice profiles along y (t) at x = x_cut.

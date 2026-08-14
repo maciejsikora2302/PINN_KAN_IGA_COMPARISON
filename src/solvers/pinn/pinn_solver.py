@@ -1,15 +1,16 @@
+import math
 import os
 import sys
-import math
 import time
-from typing import Any, Optional
+from typing import Any
+
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
-from model import ExperimentInterface, SolverMetrics, SolverOutcome
 from config import PINNConfig
-from src.problems import get_problem, BasePDEProblem
+from model import ExperimentInterface, SolverMetrics, SolverOutcome
+from src.problems import BasePDEProblem, get_problem
 from src.samplers import get_sampler
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -69,7 +70,7 @@ class PINNExperiment(ExperimentInterface):
 
     def __init__(self, config_path: str | None = None, wall_time_limit: float | None = None, optimized: bool | None = None):
         self.model = None
-        self.problem: Optional[BasePDEProblem] = None
+        self.problem: BasePDEProblem | None = None
         self.loss_history = []
         self.h1_error_history = []
         self.h1_time_history = []

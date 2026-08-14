@@ -14,22 +14,22 @@ Usage:
     python run_all.py --solvers pinn kan
 """
 
-import os
-import sys
-import glob
-import time
 import argparse
+import glob
+import os
 import subprocess
-import yaml
+import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Tuple, Optional
+
+import yaml
 
 
-def natural_sort(files: List[str]) -> List[str]:
+def natural_sort(files: list[str]) -> list[str]:
     return sorted(files)
 
 
-def find_all_configs(config_dir: str, test_mode: bool = False, solvers_filter: Optional[List[str]] = None) -> List[str]:
+def find_all_configs(config_dir: str, test_mode: bool = False, solvers_filter: list[str] | None = None) -> list[str]:
     """Finds all YAML configuration files in config_dir recursively."""
     if test_mode:
         test_dir = os.path.join("training_config", "test")
@@ -65,10 +65,10 @@ def find_all_configs(config_dir: str, test_mode: bool = False, solvers_filter: O
 def run_training_method(
     python_exe: str,
     config_path: str,
-    wall_time: Optional[float] = None,
+    wall_time: float | None = None,
     skip_existing: bool = False,
     optimized: bool = False
-) -> Tuple[int, float, str]:
+) -> tuple[int, float, str]:
     """Invokes train.py for a single configuration."""
     cmd = [python_exe, "train.py", "--config", config_path]
     if wall_time is not None:
@@ -84,7 +84,7 @@ def run_training_method(
     return res.returncode, elapsed, config_path
 
 
-def run_plot_method(python_exe: str, config_path: str) -> Tuple[int, float]:
+def run_plot_method(python_exe: str, config_path: str) -> tuple[int, float]:
     """Invokes plot_run.py for a completed method run."""
     cmd = [python_exe, "plot_run.py", "--config", config_path]
     start_t = time.time()
@@ -93,7 +93,7 @@ def run_plot_method(python_exe: str, config_path: str) -> Tuple[int, float]:
     return res.returncode, elapsed
 
 
-def run_problem_comparisons(python_exe: str, problem_dir: str) -> Tuple[int, float]:
+def run_problem_comparisons(python_exe: str, problem_dir: str) -> tuple[int, float]:
     """Invokes plot_problem_comparisons.py for a problem directory."""
     cmd = [python_exe, "plot_problem_comparisons.py", "--problem-dir", problem_dir]
     start_t = time.time()
@@ -102,7 +102,7 @@ def run_problem_comparisons(python_exe: str, problem_dir: str) -> Tuple[int, flo
     return res.returncode, elapsed
 
 
-def run_global_comparisons(python_exe: str, output_dir: str = "output") -> Tuple[int, float]:
+def run_global_comparisons(python_exe: str, output_dir: str = "output") -> tuple[int, float]:
     """Invokes plot_comparison_suite.py and generate_summary_tables.py."""
     cmd1 = [python_exe, "generate_summary_tables.py", "--output-dir", output_dir]
     cmd2 = [python_exe, "plot_comparison_suite.py", "--output-dir", output_dir]

@@ -1,12 +1,16 @@
-import os
-import glob
 import csv
-import yaml
-import numpy as np
+import glob
+import os
+
 import matplotlib
+import numpy as np
+import yaml
+
 matplotlib.use("Agg")
+from typing import Any
+
 import matplotlib.pyplot as plt
-from typing import Dict, List, Any
+
 
 def safe_float(val: Any, default: float = float('nan')) -> float:
     if val is None:
@@ -67,7 +71,7 @@ class GlobalComparator:
         self.root_dir = os.path.abspath(root_output_dir)
         self.global_dir = os.path.join(self.root_dir, "global_comparisons")
         os.makedirs(self.global_dir, exist_ok=True)
-        self.records: List[Dict[str, Any]] = []
+        self.records: list[dict[str, Any]] = []
         self._scan_all_runs()
 
     def _scan_all_runs(self):

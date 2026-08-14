@@ -1,8 +1,10 @@
-import unittest
+import glob
 import os
 import subprocess
-import glob
+import unittest
+
 import yaml
+
 
 class TestPhase5ConfigManagement(unittest.TestCase):
 

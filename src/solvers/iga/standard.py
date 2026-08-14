@@ -2,8 +2,10 @@ import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 
-from .base import BaseIGASolver, IGASolution, bspline_basis, bspline_basis_deriv
 from src.problems.base import BasePDEProblem
+
+from .base import BaseIGASolver, IGASolution, bspline_basis, bspline_basis_deriv
+
 
 class StandardIGASolver(BaseIGASolver):
     """

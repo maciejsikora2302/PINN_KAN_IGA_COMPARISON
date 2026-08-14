@@ -8,19 +8,20 @@ Usage:
     python plot_run.py --config training_config/test/test_test_poisson_sine_nurbs_kan_uniform.yaml
 """
 
-import os
 import argparse
-import yaml
-import numpy as np
+import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
+
+import numpy as np
+import yaml
 
 from src.problems import get_problem
 from src.visualization.run_visualizer import (
-    plot_loss_curve,
-    plot_h1_convergence,
-    plot_2d_solution,
-    plot_2d_error,
     plot_1d_slices,
+    plot_2d_error,
+    plot_2d_solution,
+    plot_h1_convergence,
+    plot_loss_curve,
 )
 
 

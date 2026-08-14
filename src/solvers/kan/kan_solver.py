@@ -1,16 +1,17 @@
+import math
 import os
 import sys
-import math
 import time
-from typing import Any, List, Optional
+from typing import Any
+
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
-from model import ExperimentInterface, SolverMetrics, SolverOutcome
 from config import KANConfig
-from src.problems import get_problem, BasePDEProblem
+from model import ExperimentInterface, SolverMetrics, SolverOutcome
+from src.problems import BasePDEProblem, get_problem
 from src.samplers import get_sampler
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -47,9 +48,9 @@ class KANLinear(nn.Module):
         enable_standalone_scale_spline: bool = True,
         base_activation: Any = nn.SiLU,
         grid_eps: float = 0.02,
-        grid_range: List[float] = [-1.0, 1.0],
+        grid_range: list[float] = [-1.0, 1.0],
     ):
-        super(KANLinear, self).__init__()
+        super().__init__()
         self.in_features = in_features
         self.out_features = out_features
         self.grid_size = grid_size
@@ -176,7 +177,7 @@ class KANLinear(nn.Module):
 class KAN(nn.Module):
     def __init__(
         self,
-        layers_hidden: List[int],
+        layers_hidden: list[int],
         grid_size: int = 5,
         spline_order: int = 3,
         scale_noise: float = 0.1,
@@ -184,7 +185,7 @@ class KAN(nn.Module):
         scale_spline: float = 1.0,
         base_activation: Any = nn.SiLU,
         grid_eps: float = 0.02,
-        grid_range: List[float] = [-1.0, 1.0],
+        grid_range: list[float] = [-1.0, 1.0],
     ):
         super().__init__()
         self.grid_size = grid_size
@@ -214,6 +215,7 @@ class KAN(nn.Module):
 
 from .kan_model import KANModel
 
+
 class KANExperiment(ExperimentInterface):
     """
     Refactored KAN Experiment implementation supporting both NURBS and B-spline activation functions.
@@ -222,7 +224,7 @@ class KANExperiment(ExperimentInterface):
 
     def __init__(self, config_path: str | None = None, wall_time_limit: float | None = None, optimized: bool | None = None):
         self.model = None
-        self.problem: Optional[BasePDEProblem] = None
+        self.problem: BasePDEProblem | None = None
         self.loss_history = []
         self.h1_error_history = []
         self.h1_time_history = []

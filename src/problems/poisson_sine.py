@@ -1,8 +1,10 @@
 from typing import Any
+
 import numpy as np
 import torch
 
 from .base import BasePDEProblem
+
 
 def _df(output: torch.Tensor, input_tensor: torch.Tensor, order: int = 1) -> torch.Tensor:
     df_val = output

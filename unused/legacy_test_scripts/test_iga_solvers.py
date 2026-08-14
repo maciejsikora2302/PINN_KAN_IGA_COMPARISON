@@ -1,17 +1,19 @@
-import unittest
 import os
 import tempfile
+import unittest
+
 import numpy as np
 import yaml
 
 from src.problems import get_problem
 from src.solvers.iga import (
     BaseIGASolver,
+    IGAExperiment,
+    ResidualMinimizationIGASolver,
     StandardIGASolver,
     SUPGIGASolver,
-    ResidualMinimizationIGASolver,
-    IGAExperiment,
 )
+
 
 class TestIGASolvers(unittest.TestCase):
 

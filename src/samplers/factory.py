@@ -1,5 +1,6 @@
-from .uniform_grid import UniformGridSampler
 from .boundary_layer import BoundaryLayerSampler
+from .uniform_grid import UniformGridSampler
+
 
 def get_sampler(sampler_type: str = "uniform", gamma: float = 3.0):
     """

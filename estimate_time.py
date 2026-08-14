@@ -1,11 +1,12 @@
+import argparse
 import os
 import sys
 import time
-import argparse
-import torch
-import torch.nn as nn
+from typing import Any
+
 import numpy as np
-from typing import Dict, Any, Tuple, Optional
+import torch
+from torch import nn
 
 # Add workspace path to sys.path to ensure correct imports
 workspace_dir = os.path.dirname(os.path.abspath(__file__))
@@ -16,7 +17,7 @@ from config import load_config
 from src.solvers.iga.base import bspline_basis_single
 
 
-def calibrate(optimized: bool = False) -> Tuple[float, float, float, float]:
+def calibrate(optimized: bool = False) -> tuple[float, float, float, float]:
     mode_str = "OPTIMIZED" if optimized else "BASELINE"
     print(f"Calibrating hardware performance parameters ({mode_str} mode)...")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -169,9 +170,9 @@ def estimate_time(
     pinn_lu_coeff: float,
     kan_coeff: float,
     iga_coeff: float,
-    wall_time_limit_sec: Optional[float] = None,
+    wall_time_limit_sec: float | None = None,
     optimized: bool = False
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Estimates execution time for a single-method or multi-method configuration."""
     cfg = load_config(config_path)
 

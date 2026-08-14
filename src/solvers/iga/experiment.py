@@ -1,14 +1,17 @@
 import os
 import time
+
 import numpy as np
 
-from model import ExperimentInterface, SolverMetrics, SolverOutcome
 from config import IGAConfig
-from src.problems import get_problem, BasePDEProblem
+from model import ExperimentInterface, SolverMetrics, SolverOutcome
+from src.problems import BasePDEProblem, get_problem
+
 from .base import IGASolution
+from .igrm import ResidualMinimizationIGASolver
 from .standard import StandardIGASolver
 from .supg import SUPGIGASolver
-from .igrm import ResidualMinimizationIGASolver
+
 
 class IGAExperiment(ExperimentInterface):
     """

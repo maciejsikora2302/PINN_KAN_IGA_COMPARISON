@@ -1,11 +1,11 @@
 from .base import CollocationSampler
-from .uniform_grid import UniformGridSampler
 from .boundary_layer import BoundaryLayerSampler
 from .factory import get_sampler
+from .uniform_grid import UniformGridSampler
 
 __all__ = [
+    "BoundaryLayerSampler",
     "CollocationSampler",
     "UniformGridSampler",
-    "BoundaryLayerSampler",
     "get_sampler",
 ]

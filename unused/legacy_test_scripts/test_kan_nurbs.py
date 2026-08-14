@@ -1,11 +1,13 @@
-import unittest
 import os
 import tempfile
+import unittest
+
 import numpy as np
 import torch
 import yaml
 
-from src.solvers.kan import NURBSLinear, KANExperiment
+from src.solvers.kan import KANExperiment, NURBSLinear
+
 
 class TestKANNURBS(unittest.TestCase):
 

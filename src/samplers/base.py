@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Tuple, Any, Optional
+from typing import Any
+
 import torch
+
 
 class CollocationSampler(ABC):
     """
@@ -8,14 +10,12 @@ class CollocationSampler(ABC):
     """
 
     @abstractmethod
-    def sample_points(self, n_points_x: int, n_points_t: int, length: float = 1.0, total_time: float = 1.0, device: Any = "cpu") -> Tuple[torch.Tensor, torch.Tensor]:
+    def sample_points(self, n_points_x: int, n_points_t: int, length: float = 1.0, total_time: float = 1.0, device: Any = "cpu") -> tuple[torch.Tensor, torch.Tensor]:
         """Generates (x_grid, t_grid) collocation coordinates."""
-        pass
 
     @abstractmethod
-    def build_gram_matrix(self, n_points_x: int, n_points_t: int, length: float = 1.0, total_time: float = 1.0, device: Any = "cpu") -> Optional[Any]:
+    def build_gram_matrix(self, n_points_x: int, n_points_t: int, length: float = 1.0, total_time: float = 1.0, device: Any = "cpu") -> Any | None:
         """Constructs discrete Gram matrix factor G_LU for robust loss calculation."""
-        pass
 
     def build_gram_solver(self, n_points_x: int, n_points_t: int, length: float = 1.0, total_time: float = 1.0, device: Any = "cpu", optimized: bool = False) -> Any:
         """

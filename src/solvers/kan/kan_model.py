@@ -1,9 +1,11 @@
-from typing import Any, List
-import torch
-import torch.nn as nn
+from typing import Any
 
-from .nurbs import NURBSLinear
+import torch
+from torch import nn
+
 from .kan_solver import KANLinear
+from .nurbs import NURBSLinear
+
 
 class KAN(nn.Module):
     """
@@ -12,7 +14,7 @@ class KAN(nn.Module):
 
     def __init__(
         self,
-        layers_hidden: List[int],
+        layers_hidden: list[int],
         grid_size: int = 5,
         spline_order: int = 3,
         scale_noise: float = 0.1,
@@ -20,10 +22,10 @@ class KAN(nn.Module):
         scale_spline: float = 1.0,
         base_activation: Any = nn.SiLU,
         grid_eps: float = 0.02,
-        grid_range: List[float] = [-1.0, 1.0],
+        grid_range: list[float] = [-1.0, 1.0],
         spline_type: str = "nurbs",
     ):
-        super(KAN, self).__init__()
+        super().__init__()
         self.grid_size = grid_size
         self.spline_order = spline_order
         self.spline_type = spline_type.lower()
@@ -61,7 +63,7 @@ class KANModel(nn.Module):
 
     def __init__(
         self,
-        layers_hidden: List[int],
+        layers_hidden: list[int],
         grid_size: int = 5,
         spline_order: int = 3,
         pinning: bool = True,

@@ -1,7 +1,8 @@
 import os
-from typing import Optional
-import numpy as np
+
 import matplotlib
+import numpy as np
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
@@ -52,8 +53,8 @@ def plot_loss_curve(loss_history: np.ndarray, save_path: str, title: str = "Trai
 
 def plot_h1_convergence(
     h1_history: np.ndarray,
-    epoch_history: Optional[np.ndarray] = None,
-    time_history: Optional[np.ndarray] = None,
+    epoch_history: np.ndarray | None = None,
+    time_history: np.ndarray | None = None,
     save_path: str = "h1_error_curve.png",
     title: str = "$H^1$ Semi-Norm Error Convergence"
 ) -> str:

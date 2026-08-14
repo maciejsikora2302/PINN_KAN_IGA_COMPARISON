@@ -1,15 +1,17 @@
-import os
-import glob
 import csv
-import yaml
-import numpy as np
+import glob
+import os
+
 import matplotlib
+import numpy as np
+import yaml
+
 matplotlib.use("Agg")
+from typing import Any
+
 import matplotlib.pyplot as plt
-from typing import Dict, Any
 
 from src.problems import get_problem
-
 
 METHOD_COLORS = {
     "pinn_uniform": "#1f77b4",
@@ -54,7 +56,7 @@ class ProblemComparator:
         os.makedirs(self.comparisons_dir, exist_ok=True)
 
         self.problem_id = os.path.basename(self.problem_dir)
-        self.methods_data: Dict[str, Dict[str, Any]] = {}
+        self.methods_data: dict[str, dict[str, Any]] = {}
         self.problem_name = "poisson_sine"
         self.epsilon = 0.01
 
@@ -473,8 +475,7 @@ class ProblemComparator:
             # Format markdown table headers
             f.write("| " + " | ".join(fieldnames) + " |\n")
             f.write("| " + " | ".join(["---"] * len(fieldnames)) + " |\n")
-            for r in rows:
-                f.write("| " + " | ".join(str(r[k]) for k in fieldnames) + " |\n")
+            f.writelines("| " + " | ".join(str(r[k]) for k in fieldnames) + " |\n" for r in rows)
             f.write("\n")
 
         print(f"  [+] Saved: {csv_name}")

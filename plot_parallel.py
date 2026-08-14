@@ -1,9 +1,11 @@
 import argparse
 import os
-import yaml
 import time
-import numpy as np
 from concurrent.futures import ProcessPoolExecutor
+
+import numpy as np
+import yaml
+
 
 def numpy_exact_solution(x, t, config_data):
     example = config_data.get("EXAMPLE", 1)

@@ -1,15 +1,18 @@
 import argparse
 import os
-import time
-import sys
 import platform
-import yaml
+import sys
+import time
+
 import torch
+import yaml
+
 from config import RunConfig
 from model import SolverOutcome
-from src.solvers.pinn import PINNExperiment
-from src.solvers.kan import KANExperiment
 from src.solvers.iga import IGAExperiment
+from src.solvers.kan import KANExperiment
+from src.solvers.pinn import PINNExperiment
+
 
 def main():
     parser = argparse.ArgumentParser(description="Execute single-method training for PINN, KAN, or IGA.")
@@ -60,13 +63,13 @@ def main():
         return
 
     solver_type = config.SOLVER.lower()
-    print(f"================================================================================")
+    print("================================================================================")
     print(f"=== Starting Training Run: {config.problem_id} / {config.METHOD_NAME} ===")
     print(f"  Solver:     {solver_type.upper()}")
     print(f"  Problem:    {config.PROBLEM_NAME} (Epsilon: {config.EPSILON})")
     print(f"  Config:     {config_path}")
     print(f"  Output Dir: {output_dir}")
-    print(f"================================================================================\n")
+    print("================================================================================\n")
 
     start_date = time.strftime("%Y-%m-%d %H:%M:%S")
     start_time = time.perf_counter()
@@ -138,16 +141,16 @@ def main():
         os.rename(temp_metadata_path, metadata_path)
 
     print(f"\nTraining completed successfully in {total_elapsed:.2f}s.")
-    print(f"  Metrics:")
+    print("  Metrics:")
     print(f"    - H1 Error:   {outcome.final_h1_error:.6e}")
     print(f"    - L2 Error:   {outcome.final_l2_error:.6e}")
     print(f"    - Linf Error: {outcome.final_linf_error:.6e}")
     print(f"    - DoFs/Params:{outcome.metrics.trainable_parameters_or_dofs}")
-    print(f"  Artifacts saved:")
+    print("  Artifacts saved:")
     print(f"    - Outcomes: {outcomes_path}")
     print(f"    - Metadata: {metadata_path}")
     print(f"    - Model:    {model_save_path}")
-    print(f"================================================================================\n")
+    print("================================================================================\n")
 
 if __name__ == "__main__":
     main()

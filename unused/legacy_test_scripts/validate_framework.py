@@ -1,5 +1,6 @@
 import os
 import sys
+
 import yaml
 
 # Add the parent directory to sys.path to resolve model and visualization imports
@@ -7,6 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from model import ExperimentInterface, SolverMetrics, SolverOutcome
 from visualizer import Visualizer
+
 
 class MockExperiment(ExperimentInterface):
     """

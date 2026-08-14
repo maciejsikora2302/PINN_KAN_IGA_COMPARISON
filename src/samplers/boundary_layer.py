@@ -1,8 +1,10 @@
 import math
-from typing import Tuple, Any, Optional
+from typing import Any
+
 import torch
 
 from .base import CollocationSampler
+
 
 class BoundaryLayerSampler(CollocationSampler):
     """
@@ -21,7 +23,7 @@ class BoundaryLayerSampler(CollocationSampler):
         length: float = 1.0,
         total_time: float = 1.0,
         device: Any = "cpu"
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         x_raw = torch.linspace(0.0, length, steps=n_points_x, requires_grad=True)
 
         hat_t = torch.linspace(0.0, 1.0, steps=n_points_t)
@@ -42,7 +44,7 @@ class BoundaryLayerSampler(CollocationSampler):
         length: float = 1.0,
         total_time: float = 1.0,
         device: Any = "cpu"
-    ) -> Optional[Any]:
+    ) -> Any | None:
         x_raw = torch.linspace(0.0, length, steps=n_points_x)
         hat_t = torch.linspace(0.0, 1.0, steps=n_points_t)
         gamma = self.stretch_gamma

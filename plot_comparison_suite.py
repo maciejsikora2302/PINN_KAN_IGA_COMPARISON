@@ -8,6 +8,7 @@ Usage:
 """
 
 import argparse
+
 from src.visualization.global_comparison import GlobalComparator
 
 

@@ -1,7 +1,9 @@
 import os
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Any
+
 import yaml
+
 
 @dataclass
 class ProblemConfig:
@@ -9,7 +11,7 @@ class ProblemConfig:
     EPSILON: float = 0.01
     LENGTH: float = 1.0
     TOTAL_TIME: float = 1.0
-    EXAMPLE: Optional[int] = None               # Legacy fallback
+    EXAMPLE: int | None = None               # Legacy fallback
 
     @property
     def problem_id(self) -> str:
@@ -52,9 +54,9 @@ class MethodConfig:
     
     # Training & Evaluation Settings
     EPOCHS: int = 10000
-    RPINN_EPOCHS: Optional[int] = None
-    KAN_EPOCHS: Optional[int] = None
-    KAN_RPINN_EPOCHS: Optional[int] = None
+    RPINN_EPOCHS: int | None = None
+    KAN_EPOCHS: int | None = None
+    KAN_RPINN_EPOCHS: int | None = None
     LEARNING_RATE: float = 0.001
     KAN_LEARNING_RATE: float = 0.001
     H1_CALC_EVERY: int = 100
@@ -101,7 +103,7 @@ class RunConfig(ProblemConfig, MethodConfig):
             setattr(self, key, value)
 
         # Handle PROBLEM_NAME vs legacy EXAMPLE resolution
-        if 'PROBLEM_NAME' in data and data['PROBLEM_NAME']:
+        if data.get('PROBLEM_NAME'):
             self.PROBLEM_NAME = data['PROBLEM_NAME']
             name = self.PROBLEM_NAME.lower().strip()
             if "poisson_sin" in name:
@@ -145,7 +147,7 @@ class RunConfig(ProblemConfig, MethodConfig):
             if self.RPINN == 1 and self.RPINN_EPOCHS is not None:
                 self.EPOCHS = self.RPINN_EPOCHS
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serializes public configuration parameters to dictionary."""
         d = {}
         for k in dir(self):

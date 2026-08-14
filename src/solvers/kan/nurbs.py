@@ -1,8 +1,10 @@
 import math
-from typing import Any, List, Tuple
+from typing import Any
+
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
+
 
 class NURBSLinear(nn.Module):
     """
@@ -23,9 +25,9 @@ class NURBSLinear(nn.Module):
         enable_standalone_scale_spline: bool = True,
         base_activation: Any = nn.SiLU,
         grid_eps: float = 0.02,
-        grid_range: List[float] = [-1.0, 1.0],
+        grid_range: list[float] = [-1.0, 1.0],
     ):
-        super(NURBSLinear, self).__init__()
+        super().__init__()
         self.in_features = in_features
         self.out_features = out_features
         self.grid_size = grid_size
@@ -172,7 +174,7 @@ class NURBSLinear(nn.Module):
         return output.reshape(*original_shape[:-1], self.out_features)
 
     @torch.no_grad()
-    def evaluate_edges(self, x_range: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def evaluate_edges(self, x_range: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Evaluates 1D NURBS edge activations phi_{i,j}(x) and exports projective weights w.
         Returns:

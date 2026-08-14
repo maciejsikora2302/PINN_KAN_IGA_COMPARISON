@@ -1,9 +1,9 @@
-from src.solvers.kan import KANExperiment, KANModel, KAN, KANLinear, NURBSLinear
+from src.solvers.kan import KAN, KANExperiment, KANLinear, KANModel, NURBSLinear
 
 __all__ = [
-    "KANExperiment",
-    "KANModel",
     "KAN",
+    "KANExperiment",
     "KANLinear",
+    "KANModel",
     "NURBSLinear",
 ]
