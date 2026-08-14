@@ -163,12 +163,11 @@ Ensure `train.py` executes exactly 1 method run per invocation, has **zero** plo
      - `metadata.yaml`: Environment info, model/solver specs, number of parameters / DoFs, exact elapsed time, final metrics.
      - Model checkpoint / coefficients (`model.pt` or `iga_coeffs.npy`).
    - Print clean summary and exit (NO matplotlib plotting calls).
-2. **Standardize Solver Metrics**:
-   - In `src/solvers/pinn/pinn_solver.py`, `src/solvers/kan/kan_solver.py`, `src/solvers/iga/experiment.py`:
-     - Ensure all three calculate and expose identical metric names:
-       - `final_loss`, `final_l2_error`, `final_h1_error`, `final_linf_error`, `elapsed_seconds`.
-       - Neural networks: `trainable_parameters = count_parameters(model)`.
-       - IGA: `degrees_of_freedom = (elements + degree)**2`.
+2. **Standardize Solver Metrics & Return Objects**:
+   - In `model.py`, introduce `SolverMetrics` and `SolverOutcome` dataclasses to encapsulate solution grids, numerical predictions, full convergence histories, exact error norms, execution timings, and extra diagnostics (e.g., KAN edge activations, IGA knot vectors).
+   - In `src/solvers/iga/base.py`, define `IGASolution` and `IGAMetrics` dataclasses for the internal IGA solvers.
+   - All experiment classes (`PINNExperiment`, `KANExperiment`, `IGAExperiment`) return a strongly-typed `SolverOutcome` instance from `.train()`.
+   - `train.py` consumes `outcome: SolverOutcome` uniformly, saving `.npz` artifacts and atomic `metadata.yaml` with zero custom branching or guessing.
 
 ---
 

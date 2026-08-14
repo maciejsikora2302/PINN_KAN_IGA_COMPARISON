@@ -3,7 +3,7 @@ import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 
-from .base import BaseIGASolver, bspline_basis, bspline_basis_deriv
+from .base import BaseIGASolver, IGASolution, bspline_basis, bspline_basis_deriv
 from src.problems.base import BasePDEProblem
 
 class ResidualMinimizationIGASolver(BaseIGASolver):
@@ -23,7 +23,7 @@ class ResidualMinimizationIGASolver(BaseIGASolver):
         n_points_t: int = 100,
         test_degree_enrichment: int = 1,
         **kwargs
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Dict[str, float]]:
+    ) -> IGASolution:
 
         # 1. Trial space U_h (degree p) and Enriched Test space V_h (degree p_v = p + Delta p)
         p_u = p
@@ -147,7 +147,7 @@ class ResidualMinimizationIGASolver(BaseIGASolver):
                                         Nbv_val = basis_x_v[bvx, gx] * basis_t_v[bvy, gt]
 
                                         # (G_v)_ij = integral (eps * grad(v_i).grad(v_j) + v_i * v_j)
-                                        g_val += (eps * (dNav_dx * dNbv_dx + dNav_dt * dNb_dt if 'dNb_dt' in locals() else dNav_dt * dNbv_dt) + Nav_val * Nbv_val) * w
+                                        g_val += (eps * (dNav_dx * dNbv_dx + dNav_dt * dNbv_dt) + Nav_val * Nbv_val) * w
 
                                 G_data.append(g_val)
                                 G_row.append(row_v)
@@ -242,4 +242,14 @@ class ResidualMinimizationIGASolver(BaseIGASolver):
 
         metrics = self.compute_error_norms(x_grid, t_grid, problem, z_pred, dzdx_approx, dzdt_approx)
 
-        return sol_coeffs, knots_x_u, knots_t_u, x_grid, t_grid, z_pred, metrics
+        return IGASolution(
+            sol_coeffs=sol_coeffs,
+            knots_x=knots_x_u,
+            knots_t=knots_t_u,
+            x_grid=x_grid,
+            t_grid=t_grid,
+            z_pred=z_pred,
+            metrics=metrics,
+            dzdx_approx=dzdx_approx,
+            dzdt_approx=dzdt_approx
+        )

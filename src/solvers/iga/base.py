@@ -4,7 +4,38 @@ from typing import Tuple, Dict, Any, List, Optional
 import numpy as np
 import scipy.sparse as sp
 
+from dataclasses import dataclass
 from src.problems.base import BasePDEProblem
+
+@dataclass
+class IGAMetrics:
+    l2_error: float
+    h1_error: float
+    linf_error: float
+
+@dataclass
+class IGASolution:
+    sol_coeffs: np.ndarray
+    knots_x: np.ndarray
+    knots_t: np.ndarray
+    x_grid: np.ndarray
+    t_grid: np.ndarray
+    z_pred: np.ndarray
+    metrics: IGAMetrics
+    dzdx_approx: Optional[np.ndarray] = None
+    dzdt_approx: Optional[np.ndarray] = None
+
+    @property
+    def h1_error(self) -> float:
+        return self.metrics.h1_error
+
+    @property
+    def l2_error(self) -> float:
+        return self.metrics.l2_error
+
+    @property
+    def linf_error(self) -> float:
+        return self.metrics.linf_error
 
 def bspline_basis_single(i: int, p: int, knots: np.ndarray, x: float) -> float:
     """Evaluates 1D B-spline basis function N_{i,p}(x) via Cox-de Boor recursion."""
@@ -246,7 +277,7 @@ class BaseIGASolver(ABC):
         z_pred: np.ndarray,
         dzdx_approx: np.ndarray,
         dzdt_approx: np.ndarray
-    ) -> Dict[str, float]:
+    ) -> IGAMetrics:
         """
         Computes L2 error, H1 semi-norm error, and L_infty maximum error.
         """
@@ -271,11 +302,11 @@ class BaseIGASolver(ABC):
         h1_error = math.sqrt((np.sum(dzdx_err ** 2) + np.sum(dzdt_err ** 2)) / N)
         linf_error = float(np.max(np.abs(err)))
 
-        return {
-            "l2_error": l2_error,
-            "h1_error": h1_error,
-            "linf_error": linf_error
-        }
+        return IGAMetrics(
+            l2_error=l2_error,
+            h1_error=h1_error,
+            linf_error=linf_error
+        )
 
     @abstractmethod
     def solve(
@@ -288,9 +319,9 @@ class BaseIGASolver(ABC):
         n_points_x: int = 100,
         n_points_t: int = 100,
         **kwargs
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Dict[str, float]]:
+    ) -> IGASolution:
         """
         Solves the PDE problem.
-        Returns (sol_coeffs, knots_x, knots_t, x_grid, t_grid, z_pred, metrics_dict).
+        Returns an IGASolution dataclass instance containing all solution grids, coefficients, and metrics.
         """
         pass

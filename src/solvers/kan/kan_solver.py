@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model import ExperimentInterface
+from model import ExperimentInterface, SolverMetrics, SolverOutcome
 from config import KANConfig
 from src.problems import get_problem, BasePDEProblem
 from src.samplers import get_sampler
@@ -414,7 +414,51 @@ class KANExperiment(ExperimentInterface):
         self.final_interior_loss = self.final_loss
         self.final_h1_error = self.h1_error_history[-1] if self.h1_error_history else None
 
+        trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        metrics = SolverMetrics(
+            final_loss=self.final_loss,
+            final_interior_loss=self.final_interior_loss,
+            final_h1_error=self.final_h1_error if self.final_h1_error is not None else 0.0,
+            final_l2_error=self.final_l2_error if self.final_l2_error is not None else 0.0,
+            final_linf_error=self.final_linf_error if self.final_linf_error is not None else 0.0,
+            trainable_parameters_or_dofs=trainable_params,
+            elapsed_seconds=self.elapsed_seconds,
+            epochs_trained=self.epochs_trained,
+            epochs_total=self.epochs_total
+        )
+
+        kan_curves = {}
+        if hasattr(self.model, "kan"):
+            try:
+                x_eval = torch.linspace(-1.5, 1.5, 200, device=device)
+                kan_curves["kan_x_eval"] = x_eval.cpu().numpy()
+                for idx, layer in enumerate(self.model.kan.layers):
+                    if hasattr(layer, "evaluate_edges"):
+                        out_edges = layer.evaluate_edges(x_eval)
+                        if isinstance(out_edges, tuple):
+                            phi, w = out_edges
+                            kan_curves[f"kan_layer_{idx}_phi"] = phi.cpu().numpy()
+                            kan_curves[f"kan_layer_{idx}_nurbs_weights"] = w.cpu().numpy()
+                        else:
+                            kan_curves[f"kan_layer_{idx}_phi"] = out_edges.cpu().numpy()
+            except Exception as e:
+                print(f"Warning: Failed to extract KAN edge activations: {e}")
+
+        self.outcome = SolverOutcome(
+            x_grid=self.x_grid.flatten().detach().cpu().numpy(),
+            t_grid=self.t_grid.flatten().detach().cpu().numpy(),
+            z_pred=z_num_tensor.detach().cpu().numpy(),
+            loss_history=self.loss_history,
+            h1_error_history=self.h1_error_history,
+            h1_time_history=self.h1_time_history,
+            h1_epoch_history=self.h1_epoch_history,
+            h1_progress_history=self.h1_progress_history,
+            metrics=metrics,
+            extra_data=kan_curves
+        )
+
         print("KAN training complete.")
+        return self.outcome
 
     def save_model(self, path: str) -> None:
         if self.model is None:

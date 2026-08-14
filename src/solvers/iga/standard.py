@@ -3,7 +3,7 @@ import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 
-from .base import BaseIGASolver, bspline_basis, bspline_basis_deriv
+from .base import BaseIGASolver, IGASolution, bspline_basis, bspline_basis_deriv
 from src.problems.base import BasePDEProblem
 
 class StandardIGASolver(BaseIGASolver):
@@ -21,7 +21,7 @@ class StandardIGASolver(BaseIGASolver):
         n_points_x: int = 100,
         n_points_t: int = 100,
         **kwargs
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Dict[str, float]]:
+    ) -> IGASolution:
 
         # 1. Generate knot vectors
         if mesh_type == "adaptive":
@@ -204,4 +204,14 @@ class StandardIGASolver(BaseIGASolver):
 
         metrics = self.compute_error_norms(x_grid, t_grid, problem, z_pred, dzdx_approx, dzdt_approx)
 
-        return sol_coeffs, knots_x, knots_t, x_grid, t_grid, z_pred, metrics
+        return IGASolution(
+            sol_coeffs=sol_coeffs,
+            knots_x=knots_x,
+            knots_t=knots_t,
+            x_grid=x_grid,
+            t_grid=t_grid,
+            z_pred=z_pred,
+            metrics=metrics,
+            dzdx_approx=dzdx_approx,
+            dzdt_approx=dzdt_approx
+        )

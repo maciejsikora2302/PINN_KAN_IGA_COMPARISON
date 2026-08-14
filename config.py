@@ -100,16 +100,9 @@ class RunConfig(ProblemConfig, MethodConfig):
         for key, value in data.items():
             setattr(self, key, value)
 
-        # Handle legacy EXAMPLE parameter to set PROBLEM_NAME if needed
-        if hasattr(self, 'EXAMPLE') and self.EXAMPLE is not None:
-            if not hasattr(self, 'PROBLEM_NAME') or self.PROBLEM_NAME == "poisson_sine":
-                if self.EXAMPLE == 1:
-                    self.PROBLEM_NAME = "poisson_sine"
-                elif self.EXAMPLE == 2:
-                    self.PROBLEM_NAME = "poisson_exp"
-                elif self.EXAMPLE == 3:
-                    self.PROBLEM_NAME = "eriksson_johnson"
-        elif hasattr(self, 'PROBLEM_NAME') and self.PROBLEM_NAME:
+        # Handle PROBLEM_NAME vs legacy EXAMPLE resolution
+        if 'PROBLEM_NAME' in data and data['PROBLEM_NAME']:
+            self.PROBLEM_NAME = data['PROBLEM_NAME']
             name = self.PROBLEM_NAME.lower().strip()
             if "poisson_sin" in name:
                 self.EXAMPLE = 1
@@ -117,6 +110,14 @@ class RunConfig(ProblemConfig, MethodConfig):
                 self.EXAMPLE = 2
             elif "eriksson" in name or "johnson" in name:
                 self.EXAMPLE = 3
+        elif 'EXAMPLE' in data and data['EXAMPLE'] is not None:
+            self.EXAMPLE = data['EXAMPLE']
+            if self.EXAMPLE == 1:
+                self.PROBLEM_NAME = "poisson_sine"
+            elif self.EXAMPLE == 2:
+                self.PROBLEM_NAME = "poisson_exp"
+            elif self.EXAMPLE == 3:
+                self.PROBLEM_NAME = "eriksson_johnson"
 
         # Auto-infer METHOD_NAME from filename if missing
         if not hasattr(self, 'METHOD_NAME') or not self.METHOD_NAME:
