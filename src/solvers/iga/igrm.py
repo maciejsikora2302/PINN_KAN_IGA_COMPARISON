@@ -64,19 +64,22 @@ class ResidualMinimizationIGASolver(BaseIGASolver):
         G_data, G_row, G_col = [], [], []
         F = np.zeros(N_v)
 
+        # Pre-compute quadrature weights and basis matrices
+        gw_2d_local = np.outer(gw_local, gw_local).flatten()
+
         for ex_left, ex_right, idx_x in element_spans_x:
             det_J_x = (ex_right - ex_left) / 2.0
             gp_x = det_J_x * gp_local + (ex_right + ex_left) / 2.0
             gw_x = gw_local * det_J_x
 
-            # Evaluate U_h trial basis
+            # Evaluate U_h trial basis on x
             basis_x_u = np.zeros((p_u + 1, len(gp_x)))
             deriv_x_u = np.zeros((p_u + 1, len(gp_x)))
             for a in range(p_u + 1):
                 basis_x_u[a, :] = bspline_basis(idx_x - p_u + a, p_u, knots_x_u, gp_x)
                 deriv_x_u[a, :] = bspline_basis_deriv(idx_x - p_u + a, p_u, knots_x_u, gp_x)
 
-            # Evaluate V_h test basis
+            # Evaluate V_h test basis on x
             idx_x_v = np.searchsorted(knots_x_v, gp_x[len(gp_x)//2]) - 1
             idx_x_v = min(max(idx_x_v, p_v), len(knots_x_v) - p_v - 2)
 
@@ -106,81 +109,64 @@ class ResidualMinimizationIGASolver(BaseIGASolver):
                     basis_t_v[b_idx, :] = bspline_basis(idx_t_v - p_v + b_idx, p_v, knots_t_v, gp_t)
                     deriv_t_v[b_idx, :] = bspline_basis_deriv(idx_t_v - p_v + b_idx, p_v, knots_t_v, gp_t)
 
-                # Assemble test space Gram matrix G_v (N_v x N_v)
-                for avx in range(p_v + 1):
-                    for avy in range(p_v + 1):
-                        row_v = (idx_x_v - p_v + avx) * n_t_v + (idx_t_v - p_v + avy)
+                w_2d = np.outer(gw_x, gw_t).flatten()
+                W_diag = np.diag(w_2d)
 
-                        # Linear form F
-                        f_integral = 0.0
-                        for gx in range(len(gp_x)):
-                            for gt in range(len(gp_t)):
-                                x_val = gp_x[gx]
-                                t_val = gp_t[gt]
-                                w = gw_x[gx] * gw_t[gt]
+                # 2D tensor product basis for V (dim: (p_v+1)^2 x n_gp)
+                N_v_2d = np.kron(basis_x_v, basis_t_v)
+                dN_v_dx = np.kron(deriv_x_v, basis_t_v)
+                dN_v_dt = np.kron(basis_x_v, deriv_t_v)
 
-                                N_v_val = basis_x_v[avx, gx] * basis_t_v[avy, gt]
-                                dN_v_dx = deriv_x_v[avx, gx] * basis_t_v[avy, gt]
-                                dN_v_dt = basis_x_v[avx, gx] * deriv_t_v[avy, gt]
+                # 2D tensor product basis for U (dim: (p_u+1)^2 x n_gp)
+                N_u_2d = np.kron(basis_x_u, basis_t_u)
+                dN_u_dx = np.kron(deriv_x_u, basis_t_u)
+                dN_u_dt = np.kron(basis_x_u, deriv_t_u)
 
-                                rhs_val = problem.rhs(x_val, t_val)
-                                S_x = problem.shift_dx(x_val, t_val)
-                                S_t = problem.shift_dy(x_val, t_val)
-                                S_xx = problem.shift_dx2(x_val, t_val)
-                                S_tt = problem.shift_dy2(x_val, t_val)
-                                f_eff = rhs_val - ((b_x * S_x + b_y * S_t) - eps * (S_xx + S_tt))
+                # Vectorized Gram matrix Ge: (p_v+1)^2 x (p_v+1)^2
+                diff_G = eps * (dN_v_dx @ W_diag @ dN_v_dx.T + dN_v_dt @ W_diag @ dN_v_dt.T)
+                mass_G = N_v_2d @ W_diag @ N_v_2d.T
+                Ge = diff_G + mass_G
 
-                                f_integral += f_eff * N_v_val * w
-                        F[row_v] += f_integral
+                # Vectorized Rectangular matrix Be: (p_v+1)^2 x (p_u+1)^2
+                # diff = eps * (grad(v) . grad(u))
+                diff_B = eps * (dN_v_dx @ W_diag @ dN_u_dx.T + dN_v_dt @ W_diag @ dN_u_dt.T)
+                # adv = (b . grad u) * v = v * (b_x * du/dx + b_y * du/dt)
+                adv_u = b_x * dN_u_dx + b_y * dN_u_dt
+                adv_B = N_v_2d @ W_diag @ adv_u.T
+                Be = diff_B + adv_B
 
-                        for bvx in range(p_v + 1):
-                            for bvy in range(p_v + 1):
-                                col_v = (idx_x_v - p_v + bvx) * n_t_v + (idx_t_v - p_v + bvy)
-                                g_val = 0.0
+                # Load vector Fe: (p_v+1)^2
+                GX, GT = np.meshgrid(gp_x, gp_t, indexing="ij")
+                rhs_val = problem.rhs(GX, GT).flatten()
+                Sx = problem.shift_dx(GX, GT).flatten()
+                St = problem.shift_dy(GX, GT).flatten()
+                Sxx = problem.shift_dx2(GX, GT).flatten()
+                Stt = problem.shift_dy2(GX, GT).flatten()
+                f_eff = rhs_val - ((b_x * Sx + b_y * St) - eps * (Sxx + Stt))
+                Fe = N_v_2d @ (f_eff * w_2d)
 
-                                for gx in range(len(gp_x)):
-                                    for gt in range(len(gp_t)):
-                                        w = gw_x[gx] * gw_t[gt]
-                                        dNav_dx = deriv_x_v[avx, gx] * basis_t_v[avy, gt]
-                                        dNav_dt = basis_x_v[avx, gx] * deriv_t_v[avy, gt]
-                                        Nav_val = basis_x_v[avx, gx] * basis_t_v[avy, gt]
+                # Index mappings
+                rows_v = idx_x_v - p_v + np.arange(p_v + 1)
+                cols_v = idx_t_v - p_v + np.arange(p_v + 1)
+                global_idx_v = np.array([rx * n_t_v + ct for rx in rows_v for ct in cols_v])
 
-                                        dNbv_dx = deriv_x_v[bvx, gx] * basis_t_v[bvy, gt]
-                                        dNbv_dt = basis_x_v[bvx, gx] * deriv_t_v[bvy, gt]
-                                        Nbv_val = basis_x_v[bvx, gx] * basis_t_v[bvy, gt]
+                rows_u = idx_x - p_u + np.arange(p_u + 1)
+                cols_u = idx_t - p_u + np.arange(p_u + 1)
+                global_idx_u = np.array([rx * n_t_u + ct for rx in rows_u for ct in cols_u])
 
-                                        # (G_v)_ij = integral (eps * grad(v_i).grad(v_j) + v_i * v_j)
-                                        g_val += (eps * (dNav_dx * dNbv_dx + dNav_dt * dNbv_dt) + Nav_val * Nbv_val) * w
+                F[global_idx_v] += Fe
 
-                                G_data.append(g_val)
-                                G_row.append(row_v)
-                                G_col.append(col_v)
+                for iv, r_glob in enumerate(global_idx_v):
+                    for jv, c_glob in enumerate(global_idx_v):
+                        G_data.append(Ge[iv, jv])
+                        G_row.append(r_glob)
+                        G_col.append(c_glob)
 
-                        # Assemble rectangular matrix B (N_v x N_u)
-                        for aux in range(p_u + 1):
-                            for auy in range(p_u + 1):
-                                col_u = (idx_x - p_u + aux) * n_t_u + (idx_t - p_u + auy)
-                                b_val = 0.0
-
-                                for gx in range(len(gp_x)):
-                                    for gt in range(len(gp_t)):
-                                        w = gw_x[gx] * gw_t[gt]
-
-                                        dNav_dx = deriv_x_v[avx, gx] * basis_t_v[avy, gt]
-                                        dNav_dt = basis_x_v[avx, gx] * deriv_t_v[avy, gt]
-                                        Nav_val = basis_x_v[avx, gx] * basis_t_v[avy, gt]
-
-                                        dNau_dx = deriv_x_u[aux, gx] * basis_t_u[auy, gt]
-                                        dNau_dt = basis_x_u[aux, gx] * deriv_t_u[auy, gt]
-
-                                        diff_term = eps * (dNav_dx * dNau_dx + dNav_dt * dNau_dt)
-                                        adv_term = (b_x * dNau_dx + b_y * dNau_dt) * Nav_val
-
-                                        b_val += (diff_term + adv_term) * w
-
-                                B_data.append(b_val)
-                                B_row.append(row_v)
-                                B_col.append(col_u)
+                for iv, r_glob in enumerate(global_idx_v):
+                    for ju, c_glob in enumerate(global_idx_u):
+                        B_data.append(Be[iv, ju])
+                        B_row.append(r_glob)
+                        B_col.append(c_glob)
 
         G_v = sp.coo_matrix((G_data, (G_row, G_col)), shape=(N_v, N_v)).tocsr()
         B_mat = sp.coo_matrix((B_data, (B_row, B_col)), shape=(N_v, N_u)).tocsr()
@@ -204,10 +190,11 @@ class ResidualMinimizationIGASolver(BaseIGASolver):
         is_optimized = kwargs.get("optimized", False)
 
         # Solve (B^T G_V^-1 B) U = B^T G_V^-1 F
-        solve_Gv = spla.factorized(G_v)
+        G_v_csc = G_v.tocsc()
+        solve_Gv = spla.factorized(G_v_csc)
         if is_optimized:
             # Multi-RHS vectorized SuperLU solve
-            Ginv_B = spla.spsolve(G_v.tocsc(), B_bc.tocsc())
+            Ginv_B = spla.spsolve(G_v_csc, B_bc.tocsc())
             if sp.issparse(Ginv_B):
                 Ginv_B = Ginv_B.toarray()
         else:
