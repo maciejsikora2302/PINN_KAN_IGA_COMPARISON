@@ -3,7 +3,7 @@ from typing import Any
 import torch
 from torch import nn
 
-from .kan_solver import KANLinear
+from .kan_linear import KANLinear
 from .nurbs import NURBSLinear
 
 
