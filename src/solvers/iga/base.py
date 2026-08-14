@@ -146,7 +146,7 @@ class BaseIGASolver(ABC):
                 spans.append((knots[i], knots[i+1], i))
         return spans
 
-    def apply_dirichlet_bc(self, K_sparse: sp.csr_matrix, F: np.ndarray, n_x: int, n_t: int) -> Tuple[sp.csr_matrix, np.ndarray]:
+    def apply_dirichlet_bc(self, K_sparse: Any, F: np.ndarray, n_x: int, n_t: int) -> Tuple[Any, np.ndarray]:
         """Applies Dirichlet boundary conditions by setting boundary control points to 0."""
         N_dofs = n_x * n_t
         is_boundary = np.zeros(N_dofs, dtype=bool)

@@ -23,14 +23,14 @@ import subprocess
 import yaml
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 
 
 def natural_sort(files: List[str]) -> List[str]:
     return sorted(files)
 
 
-def find_all_configs(config_dir: str, test_mode: bool = False, solvers_filter: List[str] = None) -> List[str]:
+def find_all_configs(config_dir: str, test_mode: bool = False, solvers_filter: Optional[List[str]] = None) -> List[str]:
     """Finds all YAML configuration files in config_dir recursively."""
     if test_mode:
         test_dir = os.path.join("training_config", "test")
@@ -66,7 +66,7 @@ def find_all_configs(config_dir: str, test_mode: bool = False, solvers_filter: L
 def run_training_method(
     python_exe: str,
     config_path: str,
-    wall_time: float = None,
+    wall_time: Optional[float] = None,
     skip_existing: bool = False,
     optimized: bool = False
 ) -> Tuple[int, float, str]:

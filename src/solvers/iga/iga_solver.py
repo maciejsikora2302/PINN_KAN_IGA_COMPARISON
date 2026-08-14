@@ -3,9 +3,9 @@ import math
 import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
-from typing import Any
+from typing import Any, Optional
 
-from model import ExperimentInterface
+from model import ExperimentInterface, SolverMetrics, SolverOutcome
 from config import IGAConfig
 from src.problems import get_problem, BasePDEProblem
 
@@ -75,7 +75,7 @@ class IGAExperiment(ExperimentInterface):
 
     def __init__(self, config_path: str | None = None):
         self.sol_coeffs = None
-        self.problem: BasePDEProblem = None
+        self.problem: Optional[BasePDEProblem] = None
         self.loss_history = []
         self.h1_error_history = []
         self.final_loss = None
@@ -90,9 +90,10 @@ class IGAExperiment(ExperimentInterface):
         self.config = IGAConfig()
         self.config.load_config(config_path)
         self.config.validate_config()
-        self.problem = get_problem(self.config.EXAMPLE, self.config.EPSILON)
+        example = self.config.EXAMPLE if self.config.EXAMPLE is not None else 1
+        self.problem = get_problem(example, self.config.EPSILON)
 
-    def train(self) -> None:
+    def train(self) -> SolverOutcome:
         if not self.config or not self.problem:
             raise ValueError("Configuration or PDE problem has not been loaded.")
 
@@ -298,6 +299,30 @@ class IGAExperiment(ExperimentInterface):
 
         print(f"IGA completed solver. Final H1 Error: {h1_error:.6e}")
 
+        metrics = SolverMetrics(
+            final_loss=self.final_loss,
+            final_interior_loss=self.final_interior_loss,
+            final_h1_error=self.final_h1_error,
+            final_l2_error=0.0,
+            final_linf_error=0.0,
+            trainable_parameters_or_dofs=n * n,
+            elapsed_seconds=0.0,
+            epochs_trained=self.config.EPOCHS,
+            epochs_total=self.config.EPOCHS
+        )
+        self.outcome = SolverOutcome(
+            x_grid=self.x_grid,
+            t_grid=self.t_grid,
+            z_pred=self.z_pred,
+            loss_history=self.loss_history,
+            h1_error_history=self.h1_error_history,
+            h1_time_history=[0.0] * len(self.h1_error_history),
+            h1_epoch_history=[i * self.config.H1_CALC_EVERY for i in range(len(self.h1_error_history))],
+            h1_progress_history=[0.0] * len(self.h1_error_history),
+            metrics=metrics
+        )
+        return self.outcome
+
     def save_model(self, path: str) -> None:
         if self.sol_coeffs is None:
             raise ValueError("Model has not been trained yet.")
@@ -308,6 +333,8 @@ class IGAExperiment(ExperimentInterface):
     def save_outcomes(self, path: str) -> None:
         if self.sol_coeffs is None:
             raise ValueError("Model has not been trained yet.")
+        if self.x_grid is None or self.t_grid is None or self.z_pred is None:
+            raise ValueError("Evaluation outcomes have not been computed yet.")
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         np.savez(
             path,

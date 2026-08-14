@@ -2,7 +2,7 @@ import os
 import sys
 import math
 import time
-from typing import Any, List
+from typing import Any, List, Optional
 import numpy as np
 import torch
 import torch.nn as nn
@@ -95,10 +95,12 @@ class KANLinear(nn.Module):
                 * self.scale_noise
                 / self.grid_size
             )
+            grid_val: Any = self.grid
+            grid_tensor: torch.Tensor = grid_val
             self.spline_weight.data.copy_(
                 (self.scale_spline if not self.enable_standalone_scale_spline else 1.0)
                 * self.curve2coeff(
-                    self.grid.T[self.spline_order : -self.spline_order],
+                    grid_tensor.T[self.spline_order : -self.spline_order],
                     noise,
                 )
             )
@@ -108,7 +110,8 @@ class KANLinear(nn.Module):
     def b_splines(self, x: torch.Tensor):
         assert x.dim() == 2 and x.size(1) == self.in_features
 
-        grid: torch.Tensor = self.grid
+        grid_val: Any = self.grid
+        grid: torch.Tensor = grid_val
         x = x.unsqueeze(-1)
         bases = ((x >= grid[:, :-1]) & (x < grid[:, 1:])).to(x.dtype)
         for k in range(1, self.spline_order + 1):
@@ -183,7 +186,7 @@ class KAN(nn.Module):
         grid_eps: float = 0.02,
         grid_range: List[float] = [-1.0, 1.0],
     ):
-        super(KAN, self).__init__()
+        super().__init__()
         self.grid_size = grid_size
         self.spline_order = spline_order
         self.layers = nn.ModuleList()
@@ -209,24 +212,6 @@ class KAN(nn.Module):
         return x
 
 
-class KANModel(nn.Module):
-    def __init__(self, layers_hidden: List[int], grid_size: int = 5, spline_order: int = 3, pinning: bool = True):
-        super().__init__()
-        self.pinning = pinning
-        self.kan = KAN(
-            layers_hidden=layers_hidden,
-            grid_size=grid_size,
-            spline_order=spline_order,
-        )
-
-    def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-        x_stack = torch.cat([x, t], dim=1)
-        logits = self.kan(x_stack)
-        if self.pinning:
-            logits = logits * (x - 0.0) * (x - 1.0) * (t - 0.0) * (t - 1.0)
-        return logits
-
-
 from .kan_model import KANModel, KAN
 from .nurbs import NURBSLinear
 
@@ -238,7 +223,7 @@ class KANExperiment(ExperimentInterface):
 
     def __init__(self, config_path: str | None = None, wall_time_limit: float | None = None, optimized: bool | None = None):
         self.model = None
-        self.problem: BasePDEProblem = None
+        self.problem: Optional[BasePDEProblem] = None
         self.loss_history = []
         self.h1_error_history = []
         self.h1_time_history = []
@@ -261,10 +246,14 @@ class KANExperiment(ExperimentInterface):
         self.config.load_config(config_path)
         if self.optimized is not None:
             self.config.OPTIMIZED = self.optimized
-        prob_name = getattr(self.config, "PROBLEM_NAME", None) or self.config.EXAMPLE
+        prob_name = getattr(self.config, "PROBLEM_NAME", None)
+        if prob_name is None:
+            prob_name = getattr(self.config, "EXAMPLE", 1)
+        if prob_name is None:
+            prob_name = 1
         self.problem = get_problem(prob_name, self.config.EPSILON)
 
-    def train(self) -> None:
+    def train(self) -> SolverOutcome:
         if not self.config or not self.problem:
             raise ValueError("Configuration or PDE problem has not been loaded.")
 
@@ -314,7 +303,7 @@ class KANExperiment(ExperimentInterface):
 
         def compute_interior_loss(model, x, t):
             loss = self.problem.compute_strong_residual(model, x, t, optimized=is_optimized)
-            if self.config.RPINN == 1:
+            if self.config.RPINN == 1 and gram_solver is not None:
                 Ginv_loss = gram_solver(loss)
                 loss_val = torch.dot(loss.reshape(-1), Ginv_loss.reshape(-1))
             else:
@@ -432,7 +421,8 @@ class KANExperiment(ExperimentInterface):
             try:
                 x_eval = torch.linspace(-1.5, 1.5, 200, device=device)
                 kan_curves["kan_x_eval"] = x_eval.cpu().numpy()
-                for idx, layer in enumerate(self.model.kan.layers):
+                for idx, layer_module in enumerate(self.model.kan.layers):
+                    layer: Any = layer_module
                     if hasattr(layer, "evaluate_edges"):
                         out_edges = layer.evaluate_edges(x_eval)
                         if isinstance(out_edges, tuple):
@@ -497,24 +487,27 @@ class KANExperiment(ExperimentInterface):
                 print(f"Warning: Failed to extract KAN edge activations: {e}")
 
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        save_dict: Any = {
+            "final_loss": np.array(self.final_loss),
+            "final_interior_loss": np.array(self.final_interior_loss),
+            "loss_history": np.array(self.loss_history),
+            "h1_error_history": np.array(self.h1_error_history),
+            "h1_time_history": np.array(self.h1_time_history),
+            "h1_epoch_history": np.array(self.h1_epoch_history),
+            "h1_progress_history": np.array(self.h1_progress_history),
+            "elapsed_seconds": np.array(self.elapsed_seconds),
+            "final_h1_error": np.array(self.final_h1_error if self.final_h1_error is not None else 0.0),
+            "final_l2_error": np.array(self.final_l2_error if getattr(self, "final_l2_error", None) is not None else 0.0),
+            "final_linf_error": np.array(self.final_linf_error if getattr(self, "final_linf_error", None) is not None else 0.0),
+            "epochs_trained": np.array(self.epochs_trained),
+            "epochs_total": np.array(self.epochs_total),
+            "x": self.x_grid.flatten().detach().cpu().numpy(),
+            "t": self.t_grid.flatten().detach().cpu().numpy(),
+            "z_pred": z_pred,
+        }
+        save_dict.update(kan_curves)
         np.savez(
             path,
-            final_loss=np.array(self.final_loss),
-            final_interior_loss=np.array(self.final_interior_loss),
-            loss_history=np.array(self.loss_history),
-            h1_error_history=np.array(self.h1_error_history),
-            h1_time_history=np.array(self.h1_time_history),
-            h1_epoch_history=np.array(self.h1_epoch_history),
-            h1_progress_history=np.array(self.h1_progress_history),
-            elapsed_seconds=np.array(self.elapsed_seconds),
-            final_h1_error=np.array(self.final_h1_error if self.final_h1_error is not None else 0.0),
-            final_l2_error=np.array(self.final_l2_error if getattr(self, "final_l2_error", None) is not None else 0.0),
-            final_linf_error=np.array(self.final_linf_error if getattr(self, "final_linf_error", None) is not None else 0.0),
-            epochs_trained=np.array(self.epochs_trained),
-            epochs_total=np.array(self.epochs_total),
-            x=self.x_grid.flatten().detach().cpu().numpy(),
-            t=self.t_grid.flatten().detach().cpu().numpy(),
-            z_pred=z_pred,
-            **kan_curves
+            **save_dict
         )
         print(f"KAN Outcomes saved successfully to {path}")

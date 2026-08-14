@@ -22,7 +22,7 @@ class UniformGridSampler(CollocationSampler):
 
         return x_grid, t_grid
 
-    def build_gram_matrix(self, n_points_x: int, n_points_t: int, device: Any = "cpu") -> Optional[Any]:
+    def build_gram_matrix(self, n_points_x: int, n_points_t: int, length: float = 1.0, total_time: float = 1.0, device: Any = "cpu") -> Optional[Any]:
         G = torch.eye(n_points_x * n_points_t)
 
         def linearized(ix, iy):
@@ -50,9 +50,9 @@ class UniformGridSampler(CollocationSampler):
         G = G.to(device)
         return torch.linalg.lu_factor(G)
 
-    def build_gram_solver(self, n_points_x: int, n_points_t: int, device: Any = "cpu", optimized: bool = False) -> Any:
+    def build_gram_solver(self, n_points_x: int, n_points_t: int, length: float = 1.0, total_time: float = 1.0, device: Any = "cpu", optimized: bool = False) -> Any:
         if not optimized:
-            G_LU = self.build_gram_matrix(n_points_x, n_points_t, device=device)
+            G_LU = self.build_gram_matrix(n_points_x, n_points_t, length=length, total_time=total_time, device=device)
             return lambda loss: torch.linalg.lu_solve(*G_LU, loss.reshape(-1, 1))
 
         # Fast GPU/CPU Spectral Kronecker/DST Poisson solver for 5-point discrete Laplacian

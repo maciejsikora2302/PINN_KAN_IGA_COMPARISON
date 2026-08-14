@@ -5,8 +5,8 @@ import yaml
 # Add the parent directory to sys.path to resolve model and visualization imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from model import ExperimentInterface
-from visualization import Visualizer
+from model import ExperimentInterface, SolverMetrics, SolverOutcome
+from visualizer import Visualizer
 
 class MockExperiment(ExperimentInterface):
     """
@@ -37,23 +37,49 @@ class MockExperiment(ExperimentInterface):
             
         print(f"[Mock] Loaded Config: {self.config}")
 
-    def train(self) -> None:
+    def train(self) -> SolverOutcome:
         """Simulates training or running the physics simulation."""
         print("[Mock] Starting training simulation...")
         epochs = self.config.get("epochs", 5)
         for epoch in range(1, epochs + 1):
             print(f"  [Mock] Epoch {epoch}/{epochs} - Loss: {1.0 / epoch:.4f}")
         
-        # Hardcode some simulation outputs
+        # Hardcode some simulation outcomes
         import numpy as np
         num_points = self.config.get("num_points", 100)
         amp = self.config.get("amplitude", 1.0)
         freq = self.config.get("frequency", 2.0)
         
         # Generate a wave
-        self.x_data = np.linspace(0, 2 * np.pi, num_points).tolist()
-        self.y_data = [float(amp * np.sin(freq * x)) for x in self.x_data]
+        x_arr = np.linspace(0, 2 * np.pi, num_points)
+        y_arr = amp * np.sin(freq * x_arr)
+        self.x_data = x_arr.tolist()
+        self.y_data = y_arr.tolist()
         print("[Mock] Training simulation complete.")
+
+        metrics = SolverMetrics(
+            final_loss=0.01,
+            final_interior_loss=0.005,
+            final_h1_error=0.02,
+            final_l2_error=0.01,
+            final_linf_error=0.03,
+            trainable_parameters_or_dofs=10,
+            elapsed_seconds=1.2,
+            epochs_trained=epochs,
+            epochs_total=epochs
+        )
+        self.outcome = SolverOutcome(
+            x_grid=x_arr,
+            t_grid=np.zeros_like(x_arr),
+            z_pred=y_arr,
+            loss_history=[1.0 / i for i in range(1, epochs + 1)],
+            h1_error_history=[0.1 / i for i in range(1, epochs + 1)],
+            h1_time_history=[0.1 * i for i in range(1, epochs + 1)],
+            h1_epoch_history=list(range(1, epochs + 1)),
+            h1_progress_history=[0.1 * i for i in range(1, epochs + 1)],
+            metrics=metrics
+        )
+        return self.outcome
 
     def save_model(self, path: str) -> None:
         """Saves a dummy model state file."""

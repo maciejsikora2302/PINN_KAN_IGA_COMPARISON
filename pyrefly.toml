@@ -2,3 +2,15 @@ project-includes = [
     "**/*.py*",
     "**/*.ipynb",
 ]
+project-excludes = [
+    "unused/**",
+    "unused/*",
+    "**/unused/**",
+    "unused\\**",
+    "unused\\*",
+    "**\\unused\\**",
+]
+search-path = [
+    ".",
+]
+

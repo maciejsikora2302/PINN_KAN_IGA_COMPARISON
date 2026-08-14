@@ -5,7 +5,6 @@ import numpy as np
 import yaml
 
 from visualizer import Visualizer
-from generate_summary_tables import parse_metadata_files, generate_markdown_table, generate_latex_table
 from src.problems import get_problem
 from src.solvers.iga import BaseIGASolver
 
@@ -28,13 +27,13 @@ class TestPhase4Diagnostics(unittest.TestCase):
         iga_solver = StandardIGASolver()
         metrics = iga_solver.compute_error_norms(x_grid, t_grid, problem, z_pred, dzdx, dzdt)
 
-        self.assertIn("l2_error", metrics)
-        self.assertIn("h1_error", metrics)
-        self.assertIn("linf_error", metrics)
+        self.assertTrue(hasattr(metrics, "l2_error"))
+        self.assertTrue(hasattr(metrics, "h1_error"))
+        self.assertTrue(hasattr(metrics, "linf_error"))
 
-        self.assertGreater(metrics["l2_error"], 0.0)
-        self.assertGreater(metrics["h1_error"], 0.0)
-        self.assertGreater(metrics["linf_error"], 0.0)
+        self.assertGreater(metrics.l2_error, 0.0)
+        self.assertGreater(metrics.h1_error, 0.0)
+        self.assertGreater(metrics.linf_error, 0.0)
 
     def test_boundary_layer_slice_plot(self):
         """Call Visualizer().plot_boundary_layer_slice(...) with dummy predictions and check image creation."""

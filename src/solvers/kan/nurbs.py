@@ -77,10 +77,12 @@ class NURBSLinear(nn.Module):
                 * self.scale_noise
                 / self.grid_size
             )
+            grid_val: Any = self.grid
+            grid_tensor: torch.Tensor = grid_val
             self.spline_weight.data.copy_(
                 (self.scale_spline if not self.enable_standalone_scale_spline else 1.0)
                 * self.curve2coeff(
-                    self.grid.T[self.spline_order : -self.spline_order],
+                    grid_tensor.T[self.spline_order : -self.spline_order],
                     noise,
                 )
             )
@@ -91,7 +93,8 @@ class NURBSLinear(nn.Module):
         """Evaluates 1D Cox-de Boor B-spline basis functions N_{i,p}(x)."""
         assert x.dim() == 2 and x.size(1) == self.in_features
 
-        grid: torch.Tensor = self.grid
+        grid_val: Any = self.grid
+        grid: torch.Tensor = grid_val
         x = x.unsqueeze(-1)
         bases = ((x >= grid[:, :-1]) & (x < grid[:, 1:])).to(x.dtype)
         for k in range(1, self.spline_order + 1):

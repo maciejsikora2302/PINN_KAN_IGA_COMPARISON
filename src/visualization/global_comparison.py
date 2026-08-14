@@ -8,6 +8,14 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from typing import Dict, List, Any, Optional
 
+def safe_float(val: Any, default: float = float('nan')) -> float:
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return default
+
 METHOD_COLORS = {
     "pinn_uniform": "#1f77b4",
     "pinn_boundary": "#aec7e8",
@@ -98,10 +106,10 @@ class GlobalComparator:
             sampler_type = cfg.get("SAMPLER_TYPE", s_dict.get("sampler_or_mesh", "uniform"))
             dofs = int(s_dict.get("trainable_parameters_or_dofs", 0))
 
-            h1 = float(npz_data.get("final_h1_error", s_dict.get("final_h1_error", np.nan)))
-            l2 = float(npz_data.get("final_l2_error", s_dict.get("final_l2_error", np.nan)))
-            linf = float(npz_data.get("final_linf_error", s_dict.get("final_linf_error", np.nan)))
-            time_sec = float(npz_data.get("elapsed_seconds", s_dict.get("elapsed_seconds", np.nan)))
+            h1 = safe_float(npz_data.get("final_h1_error", s_dict.get("final_h1_error", np.nan)))
+            l2 = safe_float(npz_data.get("final_l2_error", s_dict.get("final_l2_error", np.nan)))
+            linf = safe_float(npz_data.get("final_linf_error", s_dict.get("final_linf_error", np.nan)))
+            time_sec = safe_float(npz_data.get("elapsed_seconds", s_dict.get("elapsed_seconds", np.nan)))
 
             self.records.append({
                 "problem_id": problem_id,
@@ -130,7 +138,8 @@ class GlobalComparator:
     def _get_color(self, method_name: str, idx: int = 0) -> str:
         if method_name in METHOD_COLORS:
             return METHOD_COLORS[method_name]
-        colors = plt.cm.tab10.colors
+        colormap: Any = plt.cm.tab10
+        colors = colormap.colors
         return colors[idx % len(colors)]
 
     def _get_label(self, method_name: str) -> str:

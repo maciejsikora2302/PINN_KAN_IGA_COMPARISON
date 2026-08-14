@@ -104,7 +104,8 @@ class ProblemComparator:
     def _get_color(self, method_name: str, idx: int = 0) -> str:
         if method_name in METHOD_COLORS:
             return METHOD_COLORS[method_name]
-        colors = plt.cm.tab10.colors
+        colormap: Any = plt.cm.tab10
+        colors = colormap.colors
         return colors[idx % len(colors)]
 
     def _get_label(self, method_name: str) -> str:

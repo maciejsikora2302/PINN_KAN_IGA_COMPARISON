@@ -401,7 +401,10 @@ def main():
         for idx, (success, err_msg) in enumerate(results):
             if not success:
                 task = tasks[idx]
-                print(f"\n--- Task {idx} Failed: {task['method']} -> {task['kwargs'].get('save_path')} ---")
+                kwargs = task.get("kwargs", {}) if isinstance(task, dict) else {}
+                save_path = kwargs.get("save_path") if isinstance(kwargs, dict) else None
+                method_name = task.get("method") if isinstance(task, dict) else "unknown"
+                print(f"\n--- Task {idx} Failed: {method_name} -> {save_path} ---")
                 print(err_msg)
 
 if __name__ == "__main__":

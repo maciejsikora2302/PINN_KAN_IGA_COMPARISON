@@ -137,12 +137,12 @@ class RunConfig(ProblemConfig, MethodConfig):
 
         # Epoch resolution fallbacks
         if self.SOLVER == "kan":
-            if self.RPINN == 1 and getattr(self, "KAN_RPINN_EPOCHS", None) is not None:
+            if self.RPINN == 1 and self.KAN_RPINN_EPOCHS is not None:
                 self.EPOCHS = self.KAN_RPINN_EPOCHS
-            elif getattr(self, "KAN_EPOCHS", None) is not None:
+            elif self.KAN_EPOCHS is not None:
                 self.EPOCHS = self.KAN_EPOCHS
         elif self.SOLVER == "pinn":
-            if self.RPINN == 1 and getattr(self, "RPINN_EPOCHS", None) is not None:
+            if self.RPINN == 1 and self.RPINN_EPOCHS is not None:
                 self.EPOCHS = self.RPINN_EPOCHS
 
     def to_dict(self) -> Dict[str, Any]:

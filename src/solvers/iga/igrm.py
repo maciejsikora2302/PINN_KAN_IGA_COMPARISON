@@ -210,7 +210,8 @@ class ResidualMinimizationIGASolver(BaseIGASolver):
         else:
             Ginv_B = np.zeros((N_v, N_u))
             for col in range(N_u):
-                Ginv_B[:, col] = solve_Gv(B_bc[:, col].toarray().flatten())
+                col_sparse: Any = B_bc[:, col]
+                Ginv_B[:, col] = solve_Gv(col_sparse.toarray().flatten())
 
         Ginv_F = solve_Gv(F)
 

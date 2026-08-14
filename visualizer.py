@@ -56,9 +56,9 @@ class Visualizer:
         """
         plt.figure(figsize=(9, 6))
         for label, data in curves.items():
-            if len(data.get('y', [])) > 0:
+            y = data.get('y')
+            if y is not None and len(y) > 0:
                 x = data.get('x')
-                y = data.get('y')
                 if x is None or len(x) == 0:
                     x = range(len(y))
                 plt.plot(x, y, label=label, linewidth=2)

@@ -2,7 +2,7 @@ import os
 import sys
 import math
 import time
-from typing import Any
+from typing import Any, Optional
 import numpy as np
 import torch
 import torch.nn as nn
@@ -69,7 +69,7 @@ class PINNExperiment(ExperimentInterface):
 
     def __init__(self, config_path: str | None = None, wall_time_limit: float | None = None, optimized: bool | None = None):
         self.model = None
-        self.problem: BasePDEProblem = None
+        self.problem: Optional[BasePDEProblem] = None
         self.loss_history = []
         self.h1_error_history = []
         self.h1_time_history = []
@@ -92,10 +92,14 @@ class PINNExperiment(ExperimentInterface):
         self.config.load_config(config_path)
         if self.optimized is not None:
             self.config.OPTIMIZED = self.optimized
-        prob_name = getattr(self.config, "PROBLEM_NAME", None) or self.config.EXAMPLE
+        prob_name = getattr(self.config, "PROBLEM_NAME", None)
+        if prob_name is None:
+            prob_name = getattr(self.config, "EXAMPLE", 1)
+        if prob_name is None:
+            prob_name = 1
         self.problem = get_problem(prob_name, self.config.EPSILON)
 
-    def train(self) -> None:
+    def train(self) -> SolverOutcome:
         if not self.config or not self.problem:
             raise ValueError("Configuration or PDE problem has not been loaded.")
 
@@ -152,7 +156,7 @@ class PINNExperiment(ExperimentInterface):
         def compute_interior_loss(model, x, t):
             loss = self.problem.compute_strong_residual(model, x, t, optimized=is_optimized)
 
-            if self.config.RPINN == 1:
+            if self.config.RPINN == 1 and gram_solver is not None:
                 Ginv_loss = gram_solver(loss)
                 loss_val = torch.dot(loss.reshape(-1), Ginv_loss.reshape(-1))
             else:

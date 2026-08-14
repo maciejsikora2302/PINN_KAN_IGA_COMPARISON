@@ -19,7 +19,7 @@ class TestIGASolvers(unittest.TestCase):
         """Test StandardIGASolver on Poisson Example 1 with p=2, M=8."""
         problem = get_problem(1, epsilon=0.01)
         solver = StandardIGASolver()
-        sol_coeffs, knots_x, knots_t, x_grid, t_grid, z_pred, metrics = solver.solve(
+        sol = solver.solve(
             problem=problem,
             p=2,
             M=8,
@@ -27,15 +27,15 @@ class TestIGASolvers(unittest.TestCase):
             n_points_x=20,
             n_points_t=20
         )
-        self.assertFalse(np.isnan(sol_coeffs).any(), "Solver output contains NaNs.")
-        self.assertLess(metrics["l2_error"], 0.1, f"L2 error too high: {metrics['l2_error']}")
-        self.assertLess(metrics["h1_error"], 2.0, f"H1 error too high: {metrics['h1_error']}")
+        self.assertFalse(np.isnan(sol.sol_coeffs).any(), "Solver output contains NaNs.")
+        self.assertLess(sol.metrics.l2_error, 0.1, f"L2 error too high: {sol.metrics.l2_error}")
+        self.assertLess(sol.metrics.h1_error, 2.0, f"H1 error too high: {sol.metrics.h1_error}")
 
     def test_supg_eriksson_johnson(self):
         """Test SUPGIGASolver on Eriksson-Johnson Example 3 with epsilon=0.01, p=2, M=8."""
         problem = get_problem(3, epsilon=0.01)
         solver = SUPGIGASolver()
-        sol_coeffs, knots_x, knots_t, x_grid, t_grid, z_pred, metrics = solver.solve(
+        sol = solver.solve(
             problem=problem,
             p=2,
             M=8,
@@ -43,14 +43,14 @@ class TestIGASolvers(unittest.TestCase):
             n_points_x=20,
             n_points_t=20
         )
-        self.assertFalse(np.isnan(sol_coeffs).any(), "SUPG solver output contains NaNs.")
-        self.assertLess(metrics["linf_error"], 5.0, f"Linf error unbounded: {metrics['linf_error']}")
+        self.assertFalse(np.isnan(sol.sol_coeffs).any(), "SUPG solver output contains NaNs.")
+        self.assertLess(sol.metrics.linf_error, 5.0, f"Linf error unbounded: {sol.metrics.linf_error}")
 
     def test_igrm_eriksson_johnson(self):
         """Test ResidualMinimizationIGASolver on Example 3 with Delta p=1."""
         problem = get_problem(3, epsilon=0.01)
         solver = ResidualMinimizationIGASolver()
-        sol_coeffs, knots_x, knots_t, x_grid, t_grid, z_pred, metrics = solver.solve(
+        sol = solver.solve(
             problem=problem,
             p=2,
             M=8,
@@ -59,8 +59,8 @@ class TestIGASolvers(unittest.TestCase):
             n_points_x=20,
             n_points_t=20
         )
-        self.assertFalse(np.isnan(sol_coeffs).any(), "iGRM solver output contains NaNs.")
-        self.assertIn("h1_error", metrics)
+        self.assertFalse(np.isnan(sol.sol_coeffs).any(), "iGRM solver output contains NaNs.")
+        self.assertTrue(hasattr(sol.metrics, "h1_error"))
 
     def test_adaptive_knot_mesh(self):
         """Test graded knot vector generation clustered towards 1.0."""

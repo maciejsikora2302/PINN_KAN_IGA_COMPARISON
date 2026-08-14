@@ -44,10 +44,14 @@ class IGAExperiment(ExperimentInterface):
         self.config.load_config(config_path)
         if self.optimized is not None:
             self.config.OPTIMIZED = self.optimized
-        prob_name = getattr(self.config, "PROBLEM_NAME", None) or self.config.EXAMPLE
+        prob_name = getattr(self.config, "PROBLEM_NAME", None)
+        if prob_name is None:
+            prob_name = getattr(self.config, "EXAMPLE", 1)
+        if prob_name is None:
+            prob_name = 1
         self.problem = get_problem(prob_name, self.config.EPSILON)
 
-    def train(self) -> None:
+    def train(self) -> SolverOutcome:
         if not self.config or not self.problem:
             raise ValueError("Configuration or PDE problem has not been loaded.")
 

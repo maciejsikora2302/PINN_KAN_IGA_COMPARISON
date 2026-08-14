@@ -7,7 +7,7 @@ import argparse
 import torch
 import torch.nn as nn
 import numpy as np
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 
 # Add workspace path to sys.path to ensure correct imports
 workspace_dir = os.path.dirname(os.path.abspath(__file__))
@@ -171,7 +171,7 @@ def estimate_time(
     pinn_lu_coeff: float,
     kan_coeff: float,
     iga_coeff: float,
-    wall_time_limit_sec: float = None,
+    wall_time_limit_sec: Optional[float] = None,
     optimized: bool = False
 ) -> Dict[str, Any]:
     """Estimates execution time for a single-method or multi-method configuration."""
