@@ -266,6 +266,8 @@ class SUPGIGASolver(BaseIGASolver):
         )
 
         metrics = self.compute_error_norms(x_grid, t_grid, problem, z_pred, dzdx_approx, dzdt_approx)
+        shift_val = problem.shift_function(x_grid, t_grid).flatten()
+        total_z_pred = z_pred + shift_val
 
         return IGASolution(
             sol_coeffs=sol_coeffs,
@@ -273,8 +275,9 @@ class SUPGIGASolver(BaseIGASolver):
             knots_t=knots_t,
             x_grid=x_grid,
             t_grid=t_grid,
-            z_pred=z_pred,
+            z_pred=total_z_pred,
             metrics=metrics,
             dzdx_approx=dzdx_approx,
             dzdt_approx=dzdt_approx
         )
+
