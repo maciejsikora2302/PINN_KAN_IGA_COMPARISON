@@ -1,8 +1,7 @@
 import math
 from abc import ABC, abstractmethod
-from typing import Tuple, Dict, Any, List, Optional
+from typing import Tuple, Any, List, Optional
 import numpy as np
-import scipy.sparse as sp
 
 from dataclasses import dataclass
 from src.problems.base import BasePDEProblem

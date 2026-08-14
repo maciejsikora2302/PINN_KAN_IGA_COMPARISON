@@ -21,9 +21,8 @@ import time
 import argparse
 import subprocess
 import yaml
-import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Tuple, Optional
 
 
 def natural_sort(files: List[str]) -> List[str]:

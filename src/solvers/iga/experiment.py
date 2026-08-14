@@ -1,8 +1,6 @@
 import os
-import math
 import time
 import numpy as np
-from typing import Any, Dict
 
 from model import ExperimentInterface, SolverMetrics, SolverOutcome
 from config import IGAConfig

@@ -1,9 +1,8 @@
 import unittest
 import os
 import torch
-import numpy as np
 
-from src.samplers import BoundaryLayerSampler, UniformGridSampler
+from src.samplers import BoundaryLayerSampler
 
 class TestPhase3Samplers(unittest.TestCase):
 

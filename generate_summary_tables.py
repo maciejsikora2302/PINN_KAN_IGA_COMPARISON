@@ -7,7 +7,6 @@ Usage:
     python generate_summary_tables.py [--output-dir output]
 """
 
-import os
 import argparse
 from src.visualization.global_comparison import GlobalComparator
 

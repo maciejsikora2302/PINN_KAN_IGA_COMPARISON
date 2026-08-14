@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 
 def safe_float(val: Any, default: float = float('nan')) -> float:
     if val is None:

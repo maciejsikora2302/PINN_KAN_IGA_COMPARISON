@@ -3,7 +3,7 @@ import math
 import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
-from typing import Any, Optional
+from typing import Optional
 
 from model import ExperimentInterface, SolverMetrics, SolverOutcome
 from config import IGAConfig

@@ -212,8 +212,7 @@ class KAN(nn.Module):
         return x
 
 
-from .kan_model import KANModel, KAN
-from .nurbs import NURBSLinear
+from .kan_model import KANModel
 
 class KANExperiment(ExperimentInterface):
     """

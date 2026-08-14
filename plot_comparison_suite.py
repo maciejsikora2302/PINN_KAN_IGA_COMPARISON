@@ -7,7 +7,6 @@ Usage:
     python plot_comparison_suite.py [--output-dir output]
 """
 
-import os
 import argparse
 from src.visualization.global_comparison import GlobalComparator
 
