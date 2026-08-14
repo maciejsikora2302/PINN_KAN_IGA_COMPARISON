@@ -11,6 +11,7 @@ from .run_visualizer import (
     plot_1d_slices,
 )
 from .problem_comparison import ProblemComparator
+from .global_comparison import GlobalComparator
 
 __all__ = [
     "plot_loss_curve",
@@ -19,4 +20,5 @@ __all__ = [
     "plot_2d_error",
     "plot_1d_slices",
     "ProblemComparator",
+    "GlobalComparator",
 ]
