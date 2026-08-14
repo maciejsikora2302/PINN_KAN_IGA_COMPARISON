@@ -716,25 +716,23 @@ class ProblemComparator:
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(f"# Comprehensive Benchmark Summary: {self.problem_name} ({self.problem_id})\n\n")
             f.write(f"- **Problem Name**: `{self.problem_name}`\n")
-            f.write(f"- **Perturbation Parameter ($\epsilon$)**: `{self.epsilon}`\n")
+            f.write(f"- **Perturbation Parameter ($\\epsilon$)**: `{self.epsilon}`\n")
             f.write(f"- **Evaluated Methods**: {len(rows)}\n\n")
 
             # Table 1: Full Overview
             f.write("## 1. Full Method Comparison Table\n\n")
             f.write("| " + " | ".join(fieldnames) + " |\n")
             f.write("| " + " | ".join(["---"] * len(fieldnames)) + " |\n")
-            for r in rows:
-                f.write("| " + " | ".join(str(r[k]) for k in fieldnames) + " |\n")
+            f.writelines("| " + " | ".join(str(r[k]) for k in fieldnames) + " |\n" for r in rows)
             f.write("\n")
 
             # Table 2: Ranked by Accuracy (H1 Error)
             valid_h1_rows = [r for r in rows if r["H1 Semi-Norm Error"] != "N/A"]
             valid_h1_rows.sort(key=lambda r: float(r["H1 Semi-Norm Error"]))
             f.write("## 2. Methods Ranked by Accuracy ($H^1$ Semi-Norm Error)\n\n")
-            f.write("| Rank | Method | Family | $H^1$ Semi-Norm Error | $L_2$ Error | $L_\infty$ Error |\n")
+            f.write("| Rank | Method | Family | $H^1$ Semi-Norm Error | $L_2$ Error | $L_\\infty$ Error |\n")
             f.write("| --- | --- | --- | --- | --- | --- |\n")
-            for rank, r in enumerate(valid_h1_rows, start=1):
-                f.write(f"| {rank} | **{r['Method']}** | {r['Family']} | `{r['H1 Semi-Norm Error']}` | `{r['L2 Error']}` | `{r['L_inf Error']}` |\n")
+            f.writelines(f"| {rank} | **{r['Method']}** | {r['Family']} | `{r['H1 Semi-Norm Error']}` | `{r['L2 Error']}` | `{r['L_inf Error']}` |\n" for rank, r in enumerate(valid_h1_rows, start=1))
             f.write("\n")
 
             # Table 3: Ranked by Computational Efficiency Score (CES)
@@ -744,8 +742,7 @@ class ProblemComparator:
             f.write("> **CES Formula**: $\\text{CES} = -\\log_{10}(H^1_{\\text{error}} \\cdot \\sqrt{\\text{Time}} \\cdot \\sqrt[4]{\\text{DoFs}})$\n\n")
             f.write("| Rank | Method | Family | CES Score | Elapsed Time (s) | DoFs / Params | $H^1$ Error |\n")
             f.write("| --- | --- | --- | --- | --- | --- | --- |\n")
-            for rank, r in enumerate(valid_ces_rows, start=1):
-                f.write(f"| {rank} | **{r['Method']}** | {r['Family']} | **{r['CES Score']}** | {r['Elapsed Time (s)']}s | {r['DoFs / Params']} | `{r['H1 Semi-Norm Error']}` |\n")
+            f.writelines(f"| {rank} | **{r['Method']}** | {r['Family']} | **{r['CES Score']}** | {r['Elapsed Time (s)']}s | {r['DoFs / Params']} | `{r['H1 Semi-Norm Error']}` |\n" for rank, r in enumerate(valid_ces_rows, start=1))
             f.write("\n")
 
             # Table 4: Family-Level Aggregate Summary

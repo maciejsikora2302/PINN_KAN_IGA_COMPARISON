@@ -21,9 +21,10 @@ import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from config import RunConfig
 
 import yaml
+
+from config import RunConfig
 
 
 def natural_sort(files: list[str]) -> list[str]:

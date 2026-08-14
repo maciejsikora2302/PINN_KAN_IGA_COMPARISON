@@ -11,13 +11,12 @@ Usage:
 import argparse
 import glob
 import os
-import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from plot_run import plot_single_run
-from src.visualization.problem_comparison import ProblemComparator
 from src.visualization.global_comparison import GlobalComparator
+from src.visualization.problem_comparison import ProblemComparator
 
 
 def _worker_plot_single(run_dir: str):

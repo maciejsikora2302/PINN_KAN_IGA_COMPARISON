@@ -6,7 +6,6 @@ from typing import Any
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 from torch import nn
 
 from config import KANConfig
@@ -34,7 +33,7 @@ def dfdt(model: nn.Module, x: torch.Tensor, t: torch.Tensor, order: int = 1) -> 
 def dfdx(model: nn.Module, x: torch.Tensor, t: torch.Tensor, order: int = 1) -> torch.Tensor:
     return df(model(x, t), x, order=order)
 
-from .kan_model import KAN, KANLinear, KANModel
+from .kan_model import KANModel
 
 
 class KANExperiment(ExperimentInterface):
