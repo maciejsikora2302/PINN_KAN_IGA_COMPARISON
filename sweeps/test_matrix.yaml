@@ -1,5 +1,5 @@
 name: "test_matrix"
-description: "Minimal verification sweep for smoke testing the entire pipeline in seconds"
+description: "Comprehensive smoke test sweep covering all solvers, formulations, and problems"
 
 global:
   LENGTH: 1.0
@@ -21,24 +21,59 @@ global:
   H1_CALC_EVERY: 1
   IGA_DEGREE: 2
   IGA_ELEMENTS: 4
+  IGA_ADAPTIVE_GAMMA: 3.0
+  SAMPLER_GAMMA: 3.0
 
 problems:
-  - id: "test_poisson_sine"
+  - id: "poisson_sine"
     PROBLEM_NAME: "poisson_sine"
     EPSILON: 0.01
 
+  - id: "poisson_exp"
+    PROBLEM_NAME: "poisson_exp"
+    EPSILON: 0.01
+
+  - id: "eriksson_johnson"
+    PROBLEM_NAME: "eriksson_johnson"
+    EPSILON: 0.01
+
 methods:
+  # --- PINN ---
   - name: "pinn_uniform"
     SOLVER: "pinn"
     RPINN: 0
     SAMPLER_TYPE: "uniform"
 
+  - name: "r_pinn_boundary"
+    SOLVER: "pinn"
+    RPINN: 1
+    SAMPLER_TYPE: "boundary_layer"
+
+  # --- KAN ---
   - name: "nurbs_kan_uniform"
     SOLVER: "kan"
     RPINN: 0
+    KAN_SPLINE_TYPE: "nurbs"
     SAMPLER_TYPE: "uniform"
 
+  - name: "r_nurbs_kan_boundary"
+    SOLVER: "kan"
+    RPINN: 1
+    KAN_SPLINE_TYPE: "nurbs"
+    SAMPLER_TYPE: "boundary_layer"
+
+  # --- IGA ---
   - name: "iga_standard_uniform"
     SOLVER: "iga"
     IGA_METHOD: "standard"
     IGA_MESH_TYPE: "uniform"
+
+  - name: "iga_supg_adaptive"
+    SOLVER: "iga"
+    IGA_METHOD: "supg"
+    IGA_MESH_TYPE: "adaptive"
+
+  - name: "iga_igrm_adaptive"
+    SOLVER: "iga"
+    IGA_METHOD: "igrm"
+    IGA_MESH_TYPE: "adaptive"

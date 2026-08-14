@@ -19,9 +19,9 @@ IGA_DEGREE: 2
 IGA_ELEMENTS: 4
 IGA_ADAPTIVE_GAMMA: 3.0
 SAMPLER_GAMMA: 3.0
-PROBLEM_NAME: eriksson_johnson
+PROBLEM_NAME: poisson_exp
 EPSILON: 0.01
-SOLVER: iga
-IGA_METHOD: igrm
-IGA_MESH_TYPE: adaptive
-METHOD_NAME: iga_igrm_adaptive
+SOLVER: kan
+RPINN: 1
+SAMPLER_TYPE: boundary_layer
+METHOD_NAME: r_nurbs_kan_boundary

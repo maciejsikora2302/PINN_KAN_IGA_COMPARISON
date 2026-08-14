@@ -22,6 +22,6 @@ SAMPLER_GAMMA: 3.0
 PROBLEM_NAME: eriksson_johnson
 EPSILON: 0.01
 SOLVER: iga
-IGA_METHOD: igrm
-IGA_MESH_TYPE: adaptive
-METHOD_NAME: iga_igrm_adaptive
+IGA_METHOD: standard
+IGA_MESH_TYPE: uniform
+METHOD_NAME: iga_standard_uniform
