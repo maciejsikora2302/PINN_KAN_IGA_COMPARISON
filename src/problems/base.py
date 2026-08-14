@@ -66,7 +66,7 @@ class BasePDEProblem(ABC):
         pass
 
     @abstractmethod
-    def compute_strong_residual(self, model: Any, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    def compute_strong_residual(self, model: Any, x: torch.Tensor, y: torch.Tensor, optimized: bool = False) -> torch.Tensor:
         """
         Computes the strong form PDE residual L(x, y) for a neural network model.
         """

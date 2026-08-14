@@ -344,6 +344,23 @@ def plot_epsilon_curves(runs, save_dir):
     plt.savefig(os.path.join(save_dir, "error_vs_epsilon.png"), dpi=300, bbox_inches='tight')
     plt.close()
 
+def _solve_task(args):
+    method, problem, p, M = args
+    try:
+        if method == "Standard":
+            solver = StandardIGASolver()
+            _, _, _, _, _, _, m = solver.solve(problem, p, M=M, mesh_type="uniform")
+        elif method == "SUPG":
+            solver = SUPGIGASolver()
+            _, _, _, _, _, _, m = solver.solve(problem, p, M=M, mesh_type="uniform")
+        elif method == "iGRM":
+            solver = ResidualMinimizationIGASolver()
+            _, _, _, _, _, _, m = solver.solve(problem, p, M=M, mesh_type="uniform", test_degree_enrichment=1)
+        return method, p, m["h1_error"], m["l2_error"]
+    except Exception as e:
+        print(f"Failed to run {method} IGA solver for p={p}: {e}")
+        return method, p, float('nan'), float('nan')
+
 def plot_iga_degree_convergence(save_dir):
     """
     3. Multi-Degree IGA Convergence (p=2, 3, 4):
@@ -380,40 +397,28 @@ def plot_iga_degree_convergence(save_dir):
         # We solve this dynamically to ensure perfect, complete convergence plots!
         problem = get_problem(3, epsilon=0.01) # Eriksson-Johnson
         
-        for p in degrees:
-            # Standard
-            try:
-                solver = StandardIGASolver()
-                _, _, _, _, _, _, m = solver.solve(problem, p, M=8, mesh_type="uniform")
-                results["Standard"]["h1"].append(m["h1_error"])
-                results["Standard"]["l2"].append(m["l2_error"])
-            except Exception as e:
-                print(f"Failed to run Standard IGA solver for p={p}: {e}")
-                results["Standard"]["h1"].append(np.nan)
-                results["Standard"]["l2"].append(np.nan)
+        # Prepare task configurations
+        tasks = []
+        for method in ["Standard", "SUPG", "iGRM"]:
+            for p in degrees:
+                tasks.append((method, problem, p, 8))
                 
-            # SUPG
-            try:
-                solver = SUPGIGASolver()
-                _, _, _, _, _, _, m = solver.solve(problem, p, M=8, mesh_type="uniform")
-                results["SUPG"]["h1"].append(m["h1_error"])
-                results["SUPG"]["l2"].append(m["l2_error"])
-            except Exception as e:
-                print(f"Failed to run SUPG IGA solver for p={p}: {e}")
-                results["SUPG"]["h1"].append(np.nan)
-                results["SUPG"]["l2"].append(np.nan)
-                
-            # iGRM
-            try:
-                solver = ResidualMinimizationIGASolver()
-                _, _, _, _, _, _, m = solver.solve(problem, p, M=8, mesh_type="uniform", test_degree_enrichment=1)
-                results["iGRM"]["h1"].append(m["h1_error"])
-                results["iGRM"]["l2"].append(m["l2_error"])
-            except Exception as e:
-                print(f"Failed to run iGRM solver for p={p}: {e}")
-                results["iGRM"]["h1"].append(np.nan)
-                results["iGRM"]["l2"].append(np.nan)
-                
+        # Solve in parallel using threads
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor() as executor:
+            task_results = list(executor.map(_solve_task, tasks))
+            
+        # Re-pack outcomes
+        results = {
+            "Standard": {"h1": [float('nan')]*len(degrees), "l2": [float('nan')]*len(degrees)},
+            "SUPG": {"h1": [float('nan')]*len(degrees), "l2": [float('nan')]*len(degrees)},
+            "iGRM": {"h1": [float('nan')]*len(degrees), "l2": [float('nan')]*len(degrees)}
+        }
+        for method, p, h1, l2 in task_results:
+            idx = degrees.index(p)
+            results[method]["h1"][idx] = h1
+            results[method]["l2"][idx] = l2
+            
         # Save to cache
         try:
             np.savez(

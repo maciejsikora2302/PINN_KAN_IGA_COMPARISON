@@ -5,9 +5,9 @@ import sys
 import platform
 import yaml
 import torch
-from pinn import PINNExperiment
-from kan import KANExperiment
-from iga import IGAExperiment
+from src.solvers.pinn import PINNExperiment
+from src.solvers.kan import KANExperiment
+from src.solvers.iga import IGAExperiment
 
 def main():
     parser = argparse.ArgumentParser(description="Run PINN, KAN, and IGA solvers based on a YAML configuration.")
@@ -16,6 +16,7 @@ def main():
     parser.add_argument("--wall-time", nargs="?", const=5.0, type=float, help="Stop training if wall-clock time in minutes is exceeded.")
     parser.add_argument("--solvers", type=str, nargs="+", help="Specify which solvers to run (pinn, kan, iga). Overrides YAML config.")
     parser.add_argument("--skip-existing", action="store_true", help="Skip running solvers whose outputs (.npz files) already exist.")
+    parser.add_argument("--optimized", action="store_true", help="Enable performance optimizations (simultaneous autograd, fast Kronecker/sparse Gram solvers, tensor-contracted IGA).")
     args = parser.parse_args()
 
     config_filename = args.config if args.config else args.config_pos
@@ -35,6 +36,16 @@ def main():
     from config import SharedConfig
     base_config = SharedConfig()
     base_config.load_config(config_path)
+
+    # Determine optimization mode
+    is_optimized = args.optimized or getattr(base_config, "OPTIMIZED", False)
+    if is_optimized:
+        base_config.OPTIMIZED = True
+        if torch.cuda.is_available():
+            try:
+                torch.set_float32_matmul_precision('high')
+            except Exception:
+                pass
 
     # Determine active solvers
     if args.solvers:
@@ -85,9 +96,8 @@ def main():
     if "pinn" in active_solvers:
         print("--- Running PINN Solver ---")
         start_time_pinn = time.time()
-        pinn_solver = PINNExperiment(config_path)
-        if args.wall_time is not None:
-            pinn_solver.wall_time_limit = args.wall_time * 60.0
+        wall_time_sec = args.wall_time * 60.0 if args.wall_time is not None else None
+        pinn_solver = PINNExperiment(config_path, wall_time_limit=wall_time_sec, optimized=is_optimized)
         pinn_solver.train()
         pinn_solver.save_outcomes(os.path.join(output_dir, "pinn.npz"))
         elapsed_pinn = time.time() - start_time_pinn
@@ -96,9 +106,8 @@ def main():
     if "kan" in active_solvers:
         print("\n--- Running KAN Solver ---")
         start_time_kan = time.time()
-        kan_solver = KANExperiment(config_path)
-        if args.wall_time is not None:
-            kan_solver.wall_time_limit = args.wall_time * 60.0
+        wall_time_sec = args.wall_time * 60.0 if args.wall_time is not None else None
+        kan_solver = KANExperiment(config_path, wall_time_limit=wall_time_sec, optimized=is_optimized)
         kan_solver.train()
         kan_solver.save_outcomes(os.path.join(output_dir, "kan.npz"))
         elapsed_kan = time.time() - start_time_kan
@@ -107,7 +116,7 @@ def main():
     if "iga" in active_solvers:
         print("\n--- Running IGA Solver ---")
         start_time_iga = time.time()
-        iga_solver = IGAExperiment(config_path)
+        iga_solver = IGAExperiment(config_path, optimized=is_optimized)
         iga_solver.train()
         iga_solver.save_outcomes(os.path.join(output_dir, "iga.npz"))
         elapsed_iga = time.time() - start_time_iga
@@ -126,7 +135,8 @@ def main():
         "os": f"{platform.system()} {platform.release()} ({platform.version()})",
         "python_version": sys.version.replace("\n", " "),
         "pytorch_version": str(torch.__version__),
-        "device": device_name
+        "device": device_name,
+        "optimized": is_optimized
     }
 
     # Count trainable parameters
@@ -205,6 +215,18 @@ def main():
     # Gather config
     config_dict = base_config.to_dict()
 
+    # Re-read on-disk metadata to merge any solvers concurrently completed
+    if os.path.exists(metadata_path):
+        try:
+            with open(metadata_path, "r") as f:
+                latest_disk_data = yaml.safe_load(f) or {}
+                latest_results = latest_disk_data.get("results", {})
+                for k, v in latest_results.items():
+                    if k not in solvers_metadata or solvers_metadata[k] is None:
+                        solvers_metadata[k] = v
+        except Exception as e:
+            print(f"Warning: Failed to merge existing metadata.yaml: {e}")
+
     metadata = {
         "config": config_dict,
         "execution": {
@@ -215,8 +237,20 @@ def main():
         "results": solvers_metadata
     }
 
-    with open(metadata_path, "w") as f:
+    # Write atomically
+    temp_metadata_path = metadata_path + ".tmp"
+    with open(temp_metadata_path, "w") as f:
         yaml.dump(metadata, f, default_flow_style=False, sort_keys=False)
+    
+    for _ in range(5):
+        try:
+            if os.path.exists(metadata_path):
+                os.replace(temp_metadata_path, metadata_path)
+            else:
+                os.rename(temp_metadata_path, metadata_path)
+            break
+        except Exception:
+            time.sleep(0.05)
     print(f"Metadata saved successfully to {metadata_path}")
 
 if __name__ == "__main__":

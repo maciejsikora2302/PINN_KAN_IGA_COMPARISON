@@ -77,3 +77,66 @@ class BoundaryLayerSampler(CollocationSampler):
 
         G = G.to(device)
         return torch.linalg.lu_factor(G)
+
+    def build_gram_solver(
+        self,
+        n_points_x: int,
+        n_points_t: int,
+        length: float = 1.0,
+        total_time: float = 1.0,
+        device: Any = "cpu",
+        optimized: bool = False
+    ) -> Any:
+        if not optimized:
+            G_LU = self.build_gram_matrix(n_points_x, n_points_t, length=length, total_time=total_time, device=device)
+            return lambda loss: torch.linalg.lu_solve(*G_LU, loss.reshape(-1, 1))
+
+        # Fast Sparse LU solver using SciPy SuperLU
+        import scipy.sparse as sp
+        import scipy.sparse.linalg as spla
+
+        x_raw = torch.linspace(0.0, length, steps=n_points_x)
+        hat_t = torch.linspace(0.0, 1.0, steps=n_points_t)
+        gamma = self.stretch_gamma
+        t_raw = total_time * (1.0 - (torch.tanh(gamma * (1.0 - hat_t)) / math.tanh(gamma)))
+
+        N_total = n_points_x * n_points_t
+        rows, cols, data = [], [], []
+
+        def linearized(ix, iy):
+            return ix * n_points_t + iy
+
+        for ix in range(n_points_x):
+            for iy in range(n_points_t):
+                i = linearized(ix, iy)
+                if ix == 0 or ix == n_points_x - 1 or iy == 0 or iy == n_points_t - 1:
+                    rows.append(i)
+                    cols.append(i)
+                    data.append(1.0)
+                else:
+                    hx_prev = float(x_raw[ix] - x_raw[ix - 1])
+                    hx_next = float(x_raw[ix + 1] - x_raw[ix])
+                    ht_prev = float(t_raw[iy] - t_raw[iy - 1])
+                    ht_next = float(t_raw[iy + 1] - t_raw[iy])
+
+                    w_i = 0.25 * (hx_prev + hx_next) * (ht_prev + ht_next)
+
+                    diag = (2.0 / (hx_prev * hx_next) + 2.0 / (ht_prev * ht_next)) / w_i
+                    rows.append(i); cols.append(i); data.append(diag)
+
+                    rows.append(i); cols.append(linearized(ix - 1, iy)); data.append((-2.0 / (hx_prev * (hx_prev + hx_next))) / w_i)
+                    rows.append(i); cols.append(linearized(ix + 1, iy)); data.append((-2.0 / (hx_next * (hx_prev + hx_next))) / w_i)
+                    rows.append(i); cols.append(linearized(ix, iy - 1)); data.append((-2.0 / (ht_prev * (ht_prev + ht_next))) / w_i)
+                    rows.append(i); cols.append(linearized(ix, iy + 1)); data.append((-2.0 / (ht_next * (ht_prev + ht_next))) / w_i)
+
+        G_sparse = sp.coo_matrix((data, (rows, cols)), shape=(N_total, N_total)).tocsc()
+        solve_G = spla.factorized(G_sparse)
+
+        def fast_sparse_gram_solve(loss: torch.Tensor) -> torch.Tensor:
+            dtype = loss.dtype
+            device_orig = loss.device
+            loss_np = loss.detach().cpu().numpy().reshape(-1)
+            sol_np = solve_G(loss_np)
+            return torch.from_numpy(sol_np).to(device=device_orig, dtype=dtype).reshape(-1, 1)
+
+        return fast_sparse_gram_solve

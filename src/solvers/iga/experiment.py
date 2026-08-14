@@ -17,7 +17,7 @@ class IGAExperiment(ExperimentInterface):
     based on YAML configuration parameters.
     """
 
-    def __init__(self, config_path: str | None = None):
+    def __init__(self, config_path: str | None = None, optimized: bool | None = None):
         self.sol_coeffs = None
         self.problem: BasePDEProblem = None
         self.loss_history = []
@@ -30,13 +30,16 @@ class IGAExperiment(ExperimentInterface):
         self.final_h1_error = None
         self.final_l2_error = None
         self.final_linf_error = None
+        self.optimized = optimized
         super().__init__(config_path)
 
     def load_config(self, config_path: str) -> None:
         self.config = IGAConfig()
         self.config.load_config(config_path)
-        self.config.validate_config()
-        self.problem = get_problem(self.config.EXAMPLE, self.config.EPSILON)
+        if self.optimized is not None:
+            self.config.OPTIMIZED = self.optimized
+        prob_name = getattr(self.config, "PROBLEM_NAME", None) or self.config.EXAMPLE
+        self.problem = get_problem(prob_name, self.config.EPSILON)
 
     def train(self) -> None:
         if not self.config or not self.problem:
@@ -62,7 +65,8 @@ class IGAExperiment(ExperimentInterface):
             gamma=getattr(self.config, "IGA_ADAPTIVE_GAMMA", 3.0),
             n_points_x=self.config.N_POINTS_X,
             n_points_t=self.config.N_POINTS_T,
-            test_degree_enrichment=getattr(self.config, "IGA_TEST_DEGREE_ENRICHMENT", 1)
+            test_degree_enrichment=getattr(self.config, "IGA_TEST_DEGREE_ENRICHMENT", 1),
+            optimized=getattr(self.config, "OPTIMIZED", False)
         )
 
         self.sol_coeffs = sol_coeffs

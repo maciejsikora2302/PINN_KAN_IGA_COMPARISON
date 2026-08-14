@@ -91,11 +91,35 @@ class ErikssonJohnsonProblem(BasePDEProblem):
         else:
             return np.zeros_like(x)
 
-    def compute_strong_residual(self, model: Any, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    def compute_strong_residual(self, model: Any, x: torch.Tensor, y: torch.Tensor, optimized: bool = False) -> torch.Tensor:
         u_pred = model(x, y)
-        u_y = _df(u_pred, y, order=1)
-        u_yy = _df(u_y, y, order=1)
-        u_xx = _df(u_pred, x, order=2)
+        if optimized:
+            grads = torch.autograd.grad(
+                u_pred,
+                (x, y),
+                grad_outputs=torch.ones_like(u_pred),
+                create_graph=True,
+                retain_graph=True,
+            )
+            u_x, u_y = grads[0], grads[1]
+            u_xx = torch.autograd.grad(
+                u_x,
+                x,
+                grad_outputs=torch.ones_like(u_x),
+                create_graph=True,
+                retain_graph=True,
+            )[0]
+            u_yy = torch.autograd.grad(
+                u_y,
+                y,
+                grad_outputs=torch.ones_like(u_y),
+                create_graph=True,
+                retain_graph=True,
+            )[0]
+        else:
+            u_y = _df(u_pred, y, order=1)
+            u_yy = _df(u_y, y, order=1)
+            u_xx = _df(u_pred, x, order=2)
         
         # Add shift terms
         shift_y = self.shift_dy(x, y)

@@ -1,0 +1,128 @@
+name: "benchmark_matrix"
+description: "Full matrix of benchmark PDE problems and solver methods promised in abstract.pdf"
+
+global:
+  LENGTH: 1.0
+  TOTAL_TIME: 1.0
+  N_POINTS_X: 100
+  N_POINTS_T: 100
+  LAYERS: 2
+  NEURONS_PER_LAYER: 100
+  KAN_LAYERS: 2
+  KAN_NEURONS_PER_LAYER: 10
+  KAN_SPLINE_TYPE: "nurbs"
+  KAN_GRID_SIZE: 5
+  KAN_SPLINE_ORDER: 3
+  ACTIVATION: "tanh"
+  LEARNING_RATE: 0.001
+  KAN_LEARNING_RATE: 0.001
+  EPOCHS: 40000
+  RPINN_EPOCHS: 10000
+  KAN_EPOCHS: 20000
+  KAN_RPINN_EPOCHS: 5000
+  H1_CALC_EVERY: 100
+  IGA_DEGREE: 3
+  IGA_ELEMENTS: 32
+  IGA_ADAPTIVE_GAMMA: 3.0
+  SAMPLER_GAMMA: 3.0
+
+problems:
+  # 1. 2D Poisson with manufactured solution u(x, y) = sin(2*pi*x)*sin(2*pi*y)
+  - id: "poisson_sine"
+    PROBLEM_NAME: "poisson_sine"
+    EPSILON: 0.01
+
+  # 2. 2D Poisson with manufactured solution u(x, y) = sin(2*pi*x)*sin(2*pi*y)*exp(pi*(x - 2*y))
+  - id: "poisson_exp"
+    PROBLEM_NAME: "poisson_exp"
+    EPSILON: 0.01
+
+  # 3. 2D Eriksson-Johnson Advection-Diffusion: Moderate diffusion (eps = 1.0)
+  - id: "eriksson_johnson_eps1.0"
+    PROBLEM_NAME: "eriksson_johnson"
+    EPSILON: 1.0
+
+  # 4. 2D Eriksson-Johnson Advection-Diffusion: Intermediate (eps = 0.1)
+  - id: "eriksson_johnson_eps0.1"
+    PROBLEM_NAME: "eriksson_johnson"
+    EPSILON: 0.1
+
+  # 5. 2D Eriksson-Johnson Advection-Diffusion: Advection-dominated (eps = 0.01)
+  - id: "eriksson_johnson_eps0.01"
+    PROBLEM_NAME: "eriksson_johnson"
+    EPSILON: 0.01
+
+  # 6. 2D Eriksson-Johnson Advection-Diffusion: Highly advection-dominated boundary layer (eps = 0.001)
+  - id: "eriksson_johnson_eps0.001"
+    PROBLEM_NAME: "eriksson_johnson"
+    EPSILON: 0.001
+
+methods:
+  # --- Standard Physics-Informed Neural Networks ---
+  - name: "pinn_uniform"
+    SOLVER: "pinn"
+    RPINN: 0
+    SAMPLER_TYPE: "uniform"
+
+  - name: "pinn_boundary"
+    SOLVER: "pinn"
+    RPINN: 0
+    SAMPLER_TYPE: "boundary_layer"
+
+  # --- Robust Physics-Informed Neural Networks (R-PINN) ---
+  - name: "r_pinn_uniform"
+    SOLVER: "pinn"
+    RPINN: 1
+    SAMPLER_TYPE: "uniform"
+
+  - name: "r_pinn_boundary"
+    SOLVER: "pinn"
+    RPINN: 1
+    SAMPLER_TYPE: "boundary_layer"
+
+  # --- Kolmogorov-Arnold Networks with NURBS Activations (IGA-KAN) ---
+  - name: "nurbs_kan_uniform"
+    SOLVER: "kan"
+    RPINN: 0
+    KAN_SPLINE_TYPE: "nurbs"
+    SAMPLER_TYPE: "uniform"
+
+  - name: "nurbs_kan_boundary"
+    SOLVER: "kan"
+    RPINN: 0
+    KAN_SPLINE_TYPE: "nurbs"
+    SAMPLER_TYPE: "boundary_layer"
+
+  # --- Robust Kolmogorov-Arnold Networks with NURBS Activations (R-IGA-KAN) ---
+  - name: "r_nurbs_kan_uniform"
+    SOLVER: "kan"
+    RPINN: 1
+    KAN_SPLINE_TYPE: "nurbs"
+    SAMPLER_TYPE: "uniform"
+
+  - name: "r_nurbs_kan_boundary"
+    SOLVER: "kan"
+    RPINN: 1
+    KAN_SPLINE_TYPE: "nurbs"
+    SAMPLER_TYPE: "boundary_layer"
+
+  # --- Isogeometric Finite Element Methods (IGA-FEM) ---
+  - name: "iga_standard_uniform"
+    SOLVER: "iga"
+    IGA_METHOD: "standard"
+    IGA_MESH_TYPE: "uniform"
+
+  - name: "iga_supg_uniform"
+    SOLVER: "iga"
+    IGA_METHOD: "supg"
+    IGA_MESH_TYPE: "uniform"
+
+  - name: "iga_supg_adaptive"
+    SOLVER: "iga"
+    IGA_METHOD: "supg"
+    IGA_MESH_TYPE: "adaptive"
+
+  - name: "iga_igrm_adaptive"
+    SOLVER: "iga"
+    IGA_METHOD: "igrm"
+    IGA_MESH_TYPE: "adaptive"

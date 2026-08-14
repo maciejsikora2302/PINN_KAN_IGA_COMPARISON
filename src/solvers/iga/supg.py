@@ -66,105 +66,179 @@ class SUPGIGASolver(BaseIGASolver):
         b_norm = math.sqrt(b_x ** 2 + b_y ** 2)
         eps = problem.epsilon
 
-        # 2. Element Assembly Loop
-        for ex_left, ex_right, idx_x in element_spans_x:
-            hx = ex_right - ex_left
-            det_J_x = hx / 2.0
-            gp_x = det_J_x * gp_local + (ex_right + ex_left) / 2.0
-            gw_x = gw_local * det_J_x
+        is_optimized = kwargs.get("optimized", False)
+        if is_optimized:
+            for ex_left, ex_right, idx_x in element_spans_x:
+                hx = ex_right - ex_left
+                det_J_x = hx / 2.0
+                gp_x = det_J_x * gp_local + (ex_right + ex_left) / 2.0
+                gw_x = gw_local * det_J_x
 
-            basis_x = np.zeros((p + 1, len(gp_x)))
-            deriv_x = np.zeros((p + 1, len(gp_x)))
-            deriv2_x = np.zeros((p + 1, len(gp_x)))
-            for a in range(p + 1):
-                basis_x[a, :] = bspline_basis(idx_x - p + a, p, knots_x, gp_x)
-                deriv_x[a, :] = bspline_basis_deriv(idx_x - p + a, p, knots_x, gp_x)
-                deriv2_x[a, :] = bspline_basis_deriv2(idx_x - p + a, p, knots_x, gp_x)
+                basis_x = np.zeros((p + 1, len(gp_x)))
+                deriv_x = np.zeros((p + 1, len(gp_x)))
+                deriv2_x = np.zeros((p + 1, len(gp_x)))
+                for a in range(p + 1):
+                    basis_x[a, :] = bspline_basis(idx_x - p + a, p, knots_x, gp_x)
+                    deriv_x[a, :] = bspline_basis_deriv(idx_x - p + a, p, knots_x, gp_x)
+                    deriv2_x[a, :] = bspline_basis_deriv2(idx_x - p + a, p, knots_x, gp_x)
 
-            for et_left, et_right, idx_t in element_spans_t:
-                hy = et_right - et_left
-                det_J_t = hy / 2.0
-                gp_t = det_J_t * gp_local + (et_right + et_left) / 2.0
-                gw_t = gw_local * det_J_t
+                for et_left, et_right, idx_t in element_spans_t:
+                    hy = et_right - et_left
+                    det_J_t = hy / 2.0
+                    gp_t = det_J_t * gp_local + (et_right + et_left) / 2.0
+                    gw_t = gw_local * det_J_t
 
-                basis_t = np.zeros((p + 1, len(gp_t)))
-                deriv_t = np.zeros((p + 1, len(gp_t)))
-                deriv2_t = np.zeros((p + 1, len(gp_t)))
-                for b_idx in range(p + 1):
-                    basis_t[b_idx, :] = bspline_basis(idx_t - p + b_idx, p, knots_t, gp_t)
-                    deriv_t[b_idx, :] = bspline_basis_deriv(idx_t - p + b_idx, p, knots_t, gp_t)
-                    deriv2_t[b_idx, :] = bspline_basis_deriv2(idx_t - p + b_idx, p, knots_t, gp_t)
+                    basis_t = np.zeros((p + 1, len(gp_t)))
+                    deriv_t = np.zeros((p + 1, len(gp_t)))
+                    deriv2_t = np.zeros((p + 1, len(gp_t)))
+                    for b_idx in range(p + 1):
+                        basis_t[b_idx, :] = bspline_basis(idx_t - p + b_idx, p, knots_t, gp_t)
+                        deriv_t[b_idx, :] = bspline_basis_deriv(idx_t - p + b_idx, p, knots_t, gp_t)
+                        deriv2_t[b_idx, :] = bspline_basis_deriv2(idx_t - p + b_idx, p, knots_t, gp_t)
 
-                # Compute local element length h_e along advection stream
-                h_e = math.sqrt(hx ** 2 + hy ** 2)
-                tau_e = self.compute_tau_e(h_e, b_norm, eps)
+                    h_e = math.sqrt(hx ** 2 + hy ** 2)
+                    tau_e = self.compute_tau_e(h_e, b_norm, eps)
 
-                for ax in range(p + 1):
-                    for ay in range(p + 1):
-                        row_global = (idx_x - p + ax) * n_t + (idx_t - p + ay)
-                        f_integral = 0.0
+                    # 2D tensor product basis evaluations at flattened Gauss points
+                    # Shape ((p+1)^2, n_gp_x * n_gp_t)
+                    N_2d = np.kron(basis_x, basis_t)
+                    dN_dx = np.kron(deriv_x, basis_t)
+                    dN_dt = np.kron(basis_x, deriv_t)
+                    lap_N = np.kron(deriv2_x, basis_t) + np.kron(basis_x, deriv2_t)
 
-                        for gx in range(len(gp_x)):
-                            for gt in range(len(gp_t)):
-                                x_val = gp_x[gx]
-                                t_val = gp_t[gt]
-                                w = gw_x[gx] * gw_t[gt]
+                    b_grad = b_x * dN_dx + b_y * dN_dt
+                    w_2d = np.outer(gw_x, gw_t).flatten()
+                    W_diag = np.diag(w_2d)
 
-                                N_val = basis_x[ax, gx] * basis_t[ay, gt]
-                                dN_dx = deriv_x[ax, gx] * basis_t[ay, gt]
-                                dN_dt = basis_x[ax, gx] * deriv_t[ay, gt]
+                    # Stiffness matrix components
+                    diff_term = eps * (dN_dx @ W_diag @ dN_dx.T + dN_dt @ W_diag @ dN_dt.T)
+                    adv_term = N_2d @ W_diag @ b_grad.T
+                    supg_term = tau_e * (b_grad @ W_diag @ (b_grad - eps * lap_N).T)
+                    Ke = diff_term + adv_term + supg_term
 
-                                # Streamline derivative b . grad v
-                                b_grad_v = b_x * dN_dx + b_y * dN_dt
+                    # Load vector
+                    GX, GT = np.meshgrid(gp_x, gp_t, indexing="ij")
+                    rhs_val = problem.rhs(GX, GT).flatten()
+                    Sx = problem.shift_dx(GX, GT).flatten()
+                    St = problem.shift_dy(GX, GT).flatten()
+                    Sxx = problem.shift_dx2(GX, GT).flatten()
+                    Stt = problem.shift_dy2(GX, GT).flatten()
 
-                                rhs_val = problem.rhs(x_val, t_val)
-                                S_x = problem.shift_dx(x_val, t_val)
-                                S_t = problem.shift_dy(x_val, t_val)
-                                S_xx = problem.shift_dx2(x_val, t_val)
-                                S_tt = problem.shift_dy2(x_val, t_val)
+                    f_eff = rhs_val - ((b_x * Sx + b_y * St) - eps * (Sxx + Stt))
+                    v_supg = N_2d + tau_e * b_grad
+                    Fe = v_supg @ (f_eff * w_2d)
 
-                                f_eff = rhs_val - ((b_x * S_x + b_y * S_t) - eps * (S_xx + S_tt))
+                    # Global DOF index mapping
+                    rows_x = idx_x - p + np.arange(p + 1)
+                    cols_t = idx_t - p + np.arange(p + 1)
+                    global_indices = np.array([rx * n_t + ct for rx in rows_x for ct in cols_t])
 
-                                # SUPG force integrand: f_eff * (v + tau_e * b.grad v)
-                                v_supg = N_val + tau_e * b_grad_v
-                                f_integral += f_eff * v_supg * w
+                    F[global_indices] += Fe
+                    for i_loc, r_glob in enumerate(global_indices):
+                        for j_loc, c_glob in enumerate(global_indices):
+                            K_data.append(Ke[i_loc, j_loc])
+                            K_row.append(r_glob)
+                            K_col.append(c_glob)
+        else:
+            # 2. Element Assembly Loop
+            for ex_left, ex_right, idx_x in element_spans_x:
+                hx = ex_right - ex_left
+                det_J_x = hx / 2.0
+                gp_x = det_J_x * gp_local + (ex_right + ex_left) / 2.0
+                gw_x = gw_local * det_J_x
 
-                        F[row_global] += f_integral
+                basis_x = np.zeros((p + 1, len(gp_x)))
+                deriv_x = np.zeros((p + 1, len(gp_x)))
+                deriv2_x = np.zeros((p + 1, len(gp_x)))
+                for a in range(p + 1):
+                    basis_x[a, :] = bspline_basis(idx_x - p + a, p, knots_x, gp_x)
+                    deriv_x[a, :] = bspline_basis_deriv(idx_x - p + a, p, knots_x, gp_x)
+                    deriv2_x[a, :] = bspline_basis_deriv2(idx_x - p + a, p, knots_x, gp_x)
 
-                        for bx in range(p + 1):
-                            for by in range(p + 1):
-                                col_global = (idx_x - p + bx) * n_t + (idx_t - p + by)
-                                k_val = 0.0
+                for et_left, et_right, idx_t in element_spans_t:
+                    hy = et_right - et_left
+                    det_J_t = hy / 2.0
+                    gp_t = det_J_t * gp_local + (et_right + et_left) / 2.0
+                    gw_t = gw_local * det_J_t
 
-                                for gx in range(len(gp_x)):
-                                    for gt in range(len(gp_t)):
-                                        w = gw_x[gx] * gw_t[gt]
+                    basis_t = np.zeros((p + 1, len(gp_t)))
+                    deriv_t = np.zeros((p + 1, len(gp_t)))
+                    deriv2_t = np.zeros((p + 1, len(gp_t)))
+                    for b_idx in range(p + 1):
+                        basis_t[b_idx, :] = bspline_basis(idx_t - p + b_idx, p, knots_t, gp_t)
+                        deriv_t[b_idx, :] = bspline_basis_deriv(idx_t - p + b_idx, p, knots_t, gp_t)
+                        deriv2_t[b_idx, :] = bspline_basis_deriv2(idx_t - p + b_idx, p, knots_t, gp_t)
 
-                                        dNa_dx = deriv_x[ax, gx] * basis_t[ay, gt]
-                                        dNa_dt = basis_x[ax, gx] * deriv_t[ay, gt]
-                                        Na_val = basis_x[ax, gx] * basis_t[ay, gt]
+                    # Compute local element length h_e along advection stream
+                    h_e = math.sqrt(hx ** 2 + hy ** 2)
+                    tau_e = self.compute_tau_e(h_e, b_norm, eps)
 
-                                        dNb_dx = deriv_x[bx, gx] * basis_t[by, gt]
-                                        dNb_dt = basis_x[bx, gx] * deriv_t[by, gt]
-                                        d2Nb_dx2 = deriv2_x[bx, gx] * basis_t[by, gt]
-                                        d2Nb_dt2 = basis_x[bx, gx] * deriv2_t[by, gt]
+                    for ax in range(p + 1):
+                        for ay in range(p + 1):
+                            row_global = (idx_x - p + ax) * n_t + (idx_t - p + ay)
+                            f_integral = 0.0
 
-                                        b_grad_v = b_x * dNa_dx + b_y * dNa_dt
-                                        b_grad_u = b_x * dNb_dx + b_y * dNb_dt
-                                        laplacian_u = d2Nb_dx2 + d2Nb_dt2
+                            for gx in range(len(gp_x)):
+                                for gt in range(len(gp_t)):
+                                    x_val = gp_x[gx]
+                                    t_val = gp_t[gt]
+                                    w = gw_x[gx] * gw_t[gt]
 
-                                        # Standard Galerkin terms
-                                        diff_term = eps * (dNa_dx * dNb_dx + dNa_dt * dNb_dt)
-                                        adv_term = b_grad_u * Na_val
+                                    N_val = basis_x[ax, gx] * basis_t[ay, gt]
+                                    dN_dx = deriv_x[ax, gx] * basis_t[ay, gt]
+                                    dN_dt = basis_x[ax, gx] * deriv_t[ay, gt]
 
-                                        # SUPG stabilization term: tau_e * (b.grad u - eps * laplacian u) * (b.grad v)
-                                        supg_term = tau_e * (b_grad_u - eps * laplacian_u) * b_grad_v
+                                    # Streamline derivative b . grad v
+                                    b_grad_v = b_x * dN_dx + b_y * dN_dt
 
-                                        k_val += (diff_term + adv_term + supg_term) * w
+                                    rhs_val = problem.rhs(x_val, t_val)
+                                    S_x = problem.shift_dx(x_val, t_val)
+                                    S_t = problem.shift_dy(x_val, t_val)
+                                    S_xx = problem.shift_dx2(x_val, t_val)
+                                    S_tt = problem.shift_dy2(x_val, t_val)
 
-                                K_data.append(k_val)
-                                K_row.append(row_global)
-                                K_col.append(col_global)
+                                    f_eff = rhs_val - ((b_x * S_x + b_y * S_t) - eps * (S_xx + S_tt))
+
+                                    # SUPG force integrand: f_eff * (v + tau_e * b.grad v)
+                                    v_supg = N_val + tau_e * b_grad_v
+                                    f_integral += f_eff * v_supg * w
+
+                            F[row_global] += f_integral
+
+                            for bx in range(p + 1):
+                                for by in range(p + 1):
+                                    col_global = (idx_x - p + bx) * n_t + (idx_t - p + by)
+                                    k_val = 0.0
+
+                                    for gx in range(len(gp_x)):
+                                        for gt in range(len(gp_t)):
+                                            w = gw_x[gx] * gw_t[gt]
+
+                                            dNa_dx = deriv_x[ax, gx] * basis_t[ay, gt]
+                                            dNa_dt = basis_x[ax, gx] * deriv_t[ay, gt]
+                                            Na_val = basis_x[ax, gx] * basis_t[ay, gt]
+
+                                            dNb_dx = deriv_x[bx, gx] * basis_t[by, gt]
+                                            dNb_dt = basis_x[bx, gx] * deriv_t[by, gt]
+                                            d2Nb_dx2 = deriv2_x[bx, gx] * basis_t[by, gt]
+                                            d2Nb_dt2 = basis_x[bx, gx] * deriv2_t[by, gt]
+
+                                            b_grad_v = b_x * dNa_dx + b_y * dNa_dt
+                                            b_grad_u = b_x * dNb_dx + b_y * dNb_dt
+                                            laplacian_u = d2Nb_dx2 + d2Nb_dt2
+
+                                            # Standard Galerkin terms
+                                            diff_term = eps * (dNa_dx * dNb_dx + dNa_dt * dNb_dt)
+                                            adv_term = b_grad_u * Na_val
+
+                                            # SUPG stabilization term: tau_e * (b.grad u - eps * laplacian u) * (b.grad v)
+                                            supg_term = tau_e * (b_grad_u - eps * laplacian_u) * b_grad_v
+
+                                            k_val += (diff_term + adv_term + supg_term) * w
+
+                                    K_data.append(k_val)
+                                    K_row.append(row_global)
+                                    K_col.append(col_global)
 
         K_sparse = sp.coo_matrix((K_data, (K_row, K_col)), shape=(N_dofs, N_dofs)).tocsr()
 
@@ -180,7 +254,7 @@ class SUPGIGASolver(BaseIGASolver):
         t_grid = grid_t.flatten().reshape(-1, 1)
 
         z_pred, dzdx_approx, dzdt_approx = self.evaluate_solution(
-            sol_coeffs, x_grid, t_grid, knots_x, knots_t, p, p, n_t
+            sol_coeffs, x_grid, t_grid, knots_x, knots_t, p, p, n_t, optimized=is_optimized
         )
 
         metrics = self.compute_error_norms(x_grid, t_grid, problem, z_pred, dzdx_approx, dzdt_approx)

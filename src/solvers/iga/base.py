@@ -134,6 +134,45 @@ class BaseIGASolver(ABC):
 
         return K_bc.tocsr(), F
 
+    def evaluate_solution_fast(
+        self,
+        sol_coeffs: np.ndarray,
+        x_raw: np.ndarray,
+        t_raw: np.ndarray,
+        knots_x: np.ndarray,
+        knots_t: np.ndarray,
+        p_x: int,
+        p_t: int,
+        n_x: int,
+        n_t: int
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Fast tensor-product B-spline evaluation: U = B_X C B_T^T.
+        Computes 2D solution and derivatives in sub-millisecond vectorized matrix multiplications.
+        """
+        N_x = len(x_raw)
+        N_t = len(t_raw)
+
+        Bx = np.zeros((N_x, n_x))
+        dBx = np.zeros((N_x, n_x))
+        for i in range(n_x):
+            Bx[:, i] = bspline_basis(i, p_x, knots_x, x_raw)
+            dBx[:, i] = bspline_basis_deriv(i, p_x, knots_x, x_raw)
+
+        Bt = np.zeros((N_t, n_t))
+        dBt = np.zeros((N_t, n_t))
+        for j in range(n_t):
+            Bt[:, j] = bspline_basis(j, p_t, knots_t, t_raw)
+            dBt[:, j] = bspline_basis_deriv(j, p_t, knots_t, t_raw)
+
+        C = sol_coeffs.reshape(n_x, n_t)
+
+        U_2d = Bx @ C @ Bt.T
+        Ux_2d = dBx @ C @ Bt.T
+        Ut_2d = Bx @ C @ dBt.T
+
+        return U_2d.flatten(), Ux_2d.flatten(), Ut_2d.flatten()
+
     def evaluate_solution(
         self,
         sol_coeffs: np.ndarray,
@@ -143,12 +182,22 @@ class BaseIGASolver(ABC):
         knots_t: np.ndarray,
         p_x: int,
         p_t: int,
-        n_t: int
+        n_t: int,
+        optimized: bool = False
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        Evaluates u_h(x, y), du_h/dx, du_h/dy at arbitrary grid points.
+        Evaluates u_h(x, y), du_h/dx, du_h/dy at grid points.
         Returns (z_pred, dzdx_approx, dzdt_approx).
         """
+        if optimized and x_grid.ndim == 2:
+            n_x = len(knots_x) - p_x - 1
+            x_unique = np.unique(x_grid[:, 0])
+            t_unique = np.unique(t_grid[:, 0])
+            if len(x_unique) * len(t_unique) == len(x_grid):
+                return self.evaluate_solution_fast(
+                    sol_coeffs, x_unique, t_unique, knots_x, knots_t, p_x, p_t, n_x, n_t
+                )
+
         N_pts = len(x_grid)
         z_pred = np.zeros(N_pts)
         dzdx_approx = np.zeros(N_pts)

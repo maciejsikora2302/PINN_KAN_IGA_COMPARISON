@@ -151,19 +151,16 @@ class NURBSLinear(nn.Module):
 
         # 2. Get positive projective weights w -> (out_features, in_features, num_bases)
         w = self.positive_weights
+        scaled_w = self.scaled_spline_weight
 
-        # 3. Rational B-spline basis evaluation: R_{i,p}(x) = (N_i(x) * w_i) / sum(N_j(x) * w_j)
-        bases_exp = bases.unsqueeze(1)  # (batch, 1, in_features, num_bases)
-        weighted_bases = bases_exp * w.unsqueeze(0)  # (batch, out_features, in_features, num_bases)
+        # 3. Fused tensor contraction: eliminates intermediate 4D tensor allocation
+        # Numerator: sum_m (C_{o,i,m} * w_{o,i,m} * N_{b,i,m})
+        num = torch.einsum('bim,oim->boi', bases, scaled_w * w)
+        # Denominator: sum_m (w_{o,i,m} * N_{b,i,m}) + eps
+        den = torch.einsum('bim,oim->boi', bases, w) + 1e-8
 
-        den = torch.sum(weighted_bases, dim=-1, keepdim=True) + 1e-8  # (batch, out_features, in_features, 1)
-        rational_bases = weighted_bases / den  # (batch, out_features, in_features, num_bases)
-
-        # 4. Compute edge activation sum over inputs and spline bases
-        spline_output = torch.sum(
-            rational_bases * self.scaled_spline_weight.unsqueeze(0),
-            dim=(-1, -2)
-        )  # (batch, out_features)
+        # 4. Compute edge activation sum over inputs
+        spline_output = torch.sum(num / den, dim=-1)  # (batch, out_features)
 
         # 5. Add residual linear base activation
         base_output = F.linear(self.base_activation(x), self.base_weight)

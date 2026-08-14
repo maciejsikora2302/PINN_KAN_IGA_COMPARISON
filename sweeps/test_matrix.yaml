@@ -1,0 +1,44 @@
+name: "test_matrix"
+description: "Minimal verification sweep for smoke testing the entire pipeline in seconds"
+
+global:
+  LENGTH: 1.0
+  TOTAL_TIME: 1.0
+  N_POINTS_X: 10
+  N_POINTS_T: 10
+  LAYERS: 2
+  NEURONS_PER_LAYER: 8
+  KAN_LAYERS: 2
+  KAN_NEURONS_PER_LAYER: 4
+  KAN_SPLINE_TYPE: "nurbs"
+  KAN_GRID_SIZE: 3
+  KAN_SPLINE_ORDER: 2
+  ACTIVATION: "tanh"
+  EPOCHS: 5
+  RPINN_EPOCHS: 5
+  KAN_EPOCHS: 5
+  KAN_RPINN_EPOCHS: 5
+  H1_CALC_EVERY: 1
+  IGA_DEGREE: 2
+  IGA_ELEMENTS: 4
+
+problems:
+  - id: "test_poisson_sine"
+    PROBLEM_NAME: "poisson_sine"
+    EPSILON: 0.01
+
+methods:
+  - name: "pinn_uniform"
+    SOLVER: "pinn"
+    RPINN: 0
+    SAMPLER_TYPE: "uniform"
+
+  - name: "nurbs_kan_uniform"
+    SOLVER: "kan"
+    RPINN: 0
+    SAMPLER_TYPE: "uniform"
+
+  - name: "iga_standard_uniform"
+    SOLVER: "iga"
+    IGA_METHOD: "standard"
+    IGA_MESH_TYPE: "uniform"

@@ -198,11 +198,19 @@ class ResidualMinimizationIGASolver(BaseIGASolver):
 
         B_bc = B_lil.tocsr()
 
+        is_optimized = kwargs.get("optimized", False)
+
         # Solve (B^T G_V^-1 B) U = B^T G_V^-1 F
         solve_Gv = spla.factorized(G_v)
-        Ginv_B = np.zeros((N_v, N_u))
-        for col in range(N_u):
-            Ginv_B[:, col] = solve_Gv(B_bc[:, col].toarray().flatten())
+        if is_optimized:
+            # Multi-RHS vectorized SuperLU solve
+            Ginv_B = spla.spsolve(G_v.tocsc(), B_bc.tocsc())
+            if sp.issparse(Ginv_B):
+                Ginv_B = Ginv_B.toarray()
+        else:
+            Ginv_B = np.zeros((N_v, N_u))
+            for col in range(N_u):
+                Ginv_B[:, col] = solve_Gv(B_bc[:, col].toarray().flatten())
 
         Ginv_F = solve_Gv(F)
 
@@ -229,7 +237,7 @@ class ResidualMinimizationIGASolver(BaseIGASolver):
         t_grid = grid_t.flatten().reshape(-1, 1)
 
         z_pred, dzdx_approx, dzdt_approx = self.evaluate_solution(
-            sol_coeffs, x_grid, t_grid, knots_x_u, knots_t_u, p_u, p_u, n_t_u
+            sol_coeffs, x_grid, t_grid, knots_x_u, knots_t_u, p_u, p_u, n_t_u, optimized=is_optimized
         )
 
         metrics = self.compute_error_norms(x_grid, t_grid, problem, z_pred, dzdx_approx, dzdt_approx)

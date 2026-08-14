@@ -1,4 +1,5 @@
 import os
+import sys
 import math
 import time
 from typing import Any, List
@@ -235,7 +236,7 @@ class KANExperiment(ExperimentInterface):
     Fully decoupled from specific problem formulas via the PDEProblem strategy pattern.
     """
 
-    def __init__(self, config_path: str | None = None, wall_time_limit: float | None = None):
+    def __init__(self, config_path: str | None = None, wall_time_limit: float | None = None, optimized: bool | None = None):
         self.model = None
         self.problem: BasePDEProblem = None
         self.loss_history = []
@@ -249,6 +250,7 @@ class KANExperiment(ExperimentInterface):
         self.t_grid: Any = None
         self.final_h1_error = None
         self.wall_time_limit = wall_time_limit
+        self.optimized = optimized
         self.epochs_trained = 0
         self.epochs_total = 0
         self.elapsed_seconds = 0.0
@@ -257,8 +259,10 @@ class KANExperiment(ExperimentInterface):
     def load_config(self, config_path: str) -> None:
         self.config = KANConfig()
         self.config.load_config(config_path)
-        self.config.validate_config()
-        self.problem = get_problem(self.config.EXAMPLE, self.config.EPSILON)
+        if self.optimized is not None:
+            self.config.OPTIMIZED = self.optimized
+        prob_name = getattr(self.config, "PROBLEM_NAME", None) or self.config.EXAMPLE
+        self.problem = get_problem(prob_name, self.config.EPSILON)
 
     def train(self) -> None:
         if not self.config or not self.problem:
@@ -276,9 +280,15 @@ class KANExperiment(ExperimentInterface):
             device=device
         )
 
-        G_LU = None
+        gram_solver = None
+        is_optimized = getattr(self.config, "OPTIMIZED", False)
         if self.config.RPINN == 1:
-            G_LU = sampler.build_gram_matrix(self.config.N_POINTS_X, self.config.N_POINTS_T, device=device)
+            gram_solver = sampler.build_gram_solver(
+                self.config.N_POINTS_X,
+                self.config.N_POINTS_T,
+                device=device,
+                optimized=is_optimized
+            )
 
         layers_hidden = [2] + [self.config.KAN_NEURONS_PER_LAYER] * self.config.KAN_LAYERS + [1]
         spline_type = getattr(self.config, "KAN_SPLINE_TYPE", "nurbs")
@@ -293,7 +303,7 @@ class KANExperiment(ExperimentInterface):
             spline_type=spline_type
         ).to(device)
 
-        if hasattr(torch, "compile") and torch.cuda.is_available():
+        if hasattr(torch, "compile") and torch.cuda.is_available() and sys.platform != "win32":
             try:
                 self.model = torch.compile(self.model)
                 print("KAN model compiled successfully using torch.compile.")
@@ -303,9 +313,9 @@ class KANExperiment(ExperimentInterface):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.KAN_LEARNING_RATE)
 
         def compute_interior_loss(model, x, t):
-            loss = self.problem.compute_strong_residual(model, x, t)
+            loss = self.problem.compute_strong_residual(model, x, t, optimized=is_optimized)
             if self.config.RPINN == 1:
-                Ginv_loss = torch.linalg.lu_solve(*G_LU, loss.reshape(-1, 1))
+                Ginv_loss = gram_solver(loss)
                 loss_val = torch.dot(loss.reshape(-1), Ginv_loss.reshape(-1))
             else:
                 loss_val = loss.pow(2).sum()
