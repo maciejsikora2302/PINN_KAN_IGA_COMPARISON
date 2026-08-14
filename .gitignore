@@ -67,3 +67,5 @@ outputs/*.npy
 Thumbs.db
 
 unused/legacy_output_archives
+
+output.zip
