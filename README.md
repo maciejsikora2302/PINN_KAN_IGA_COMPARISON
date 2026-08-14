@@ -99,7 +99,7 @@ where:
 
 When $\epsilon \ll 1$, the problem enters the **advection-dominated regime** characterized by a high Péclet number:
 $$\text{Pe} = \frac{\|\mathbf{b}\| L}{2\epsilon} \gg 1$$
-In this regime, standard numerical methods (Galerkin FEM and standard PINNs) suffer from unphysical, spurious node-to-node oscillations due to steep boundary layers of thickness $\mathcal{O}(\epsilon)$ at outflow boundaries. `[VERIFICATION NEEDED]`
+In this regime, standard numerical methods (Galerkin FEM and standard PINNs) suffer from unphysical, spurious node-to-node oscillations due to steep boundary layers of thickness $\mathcal{O}(\epsilon)$ at outflow boundaries.
 
 #### Benchmark Problems:
 1. **Poisson High-Frequency Sine**:
@@ -107,8 +107,8 @@ In this regime, standard numerical methods (Galerkin FEM and standard PINNs) suf
 2. **Poisson Exponential Gradient**:
    $$-\epsilon \Delta u = f, \quad u_{\text{exact}}(x, y) = \sin(2\pi x)\sin(2\pi y)\exp(\pi(x - 2y))$$
 3. **Eriksson–Johnson Convection-Diffusion**:
-   $$-\epsilon \Delta u + u_y = f, \quad \mathbf{b} = (0, 1)^T$$
-   featuring an exponential boundary layer at $y \to 1$ with analytical exact series representation. `[VERIFICATION NEEDED]`
+   $$-\epsilon \Delta u + u_y = 0, \quad \mathbf{b} = (0, 1)^T$$
+   featuring an exponential boundary layer at $y \to 1$ with exact closed-form analytical solution.
 
 ---
 
@@ -129,7 +129,7 @@ $$\mathcal{L}_{\text{interior}}(\theta) = \frac{1}{N} \sum_{i=1}^N \left| -\epsi
 
 ---
 
-### 3.3 Robust Variational PINNs (R-PINN) `[VERIFICATION NEEDED - Ref: Rojas et al., CMAME 2024]`
+### 3.3 Robust Variational PINNs (R-PINN)
 
 Standard strong-form collocation losses fail to measure the true error norm when $\epsilon \ll 1$. Robust Variational PINNs formulate the learning problem in the dual Sobolev space $V^* = (H^1_0(\Omega))^*$.
 
@@ -145,7 +145,7 @@ where $\mathbf{r}_j(u_\theta) = \langle R(u_\theta), \psi_j \rangle$. This loss 
 
 ---
 
-### 3.4 Kolmogorov-Arnold Networks with Rational B-Splines (IGA-KANN / NURBS-KAN) `[VERIFICATION NEEDED - Ref: Liu et al., ICLR 2025]`
+### 3.4 Kolmogorov-Arnold Networks with Rational B-Splines (IGA-KANN / NURBS-KAN)
 
 Kolmogorov-Arnold Networks (KAN) replace fixed activation functions on nodes with **learnable 1D univariate spline functions** $\phi_{i, j}(x)$ along network edges:
 
@@ -162,7 +162,7 @@ R-NURBS-KAN combines the rational spline edge parameterization of KANs with the 
 
 ---
 
-### 3.6 Isogeometric Analysis Solvers (IGA-FEM) `[VERIFICATION NEEDED - Ref: Calo et al., CMAME 2021]`
+### 3.6 Isogeometric Analysis Solvers (IGA-FEM)
 
 Isogeometric Analysis (IGA) employs high-order, high-continuity B-spline basis functions $N_{i, p}(x) N_{j, p}(y)$ as both geometry and discrete approximation spaces:
 
@@ -296,8 +296,8 @@ python update_example_outputs.py
 
 ---
 
-## 8. References `[VERIFICATION NEEDED]`
+## 8. References
 
-- **[1]** Z. Liu, Y. Wang, S. Vaidya, F. Ruehle, J. Halverson, M. Soljacic, T. Hou, M. Tegmark, *KAN: Kolmogorov-Arnold Networks*, The Thirteenth International Conference on Learning Representations (ICLR 2025). `[VERIFICATION NEEDED]`
-- **[2]** S. Rojas, P. Maczuga, J. Muñoz-Matute, D. Pardo, M. Paszyński, *Robust Variational Physics-Informed Neural Networks*, Computer Methods in Applied Mechanics and Engineering 425 (2024) 116904. `[VERIFICATION NEEDED]`
-- **[3]** V.M. Calo, M. Łoś, Q. Deng, I. Muga, M. Paszyński, *Isogeometric Residual Minimization Method (iGRM) with direction splitting preconditioner for stationary advection-dominated diffusion problems*, Computer Methods in Applied Mechanics and Engineering, 373 (2021) 113214. `[VERIFICATION NEEDED]`
+- **[1]** Z. Liu, Y. Wang, S. Vaidya, F. Ruehle, J. Halverson, M. Soljacic, T. Hou, M. Tegmark, *KAN: Kolmogorov-Arnold Networks*, The Thirteenth International Conference on Learning Representations (ICLR 2025). [arXiv:2404.19756](https://arxiv.org/abs/2404.19756)
+- **[2]** S. Rojas, P. Maczuga, J. Muñoz-Matute, D. Pardo, M. Paszyński, *Robust Variational Physics-Informed Neural Networks*, Computer Methods in Applied Mechanics and Engineering 425 (2024) 116904. [doi:10.1016/j.cma.2024.116904](https://doi.org/10.1016/j.cma.2024.116904)
+- **[3]** V.M. Calo, M. Łoś, Q. Deng, I. Muga, M. Paszyński, *Isogeometric Residual Minimization Method (iGRM) with direction splitting preconditioner for stationary advection-dominated diffusion problems*, Computer Methods in Applied Mechanics and Engineering, 373 (2021) 113214. [doi:10.1016/j.cma.2020.113214](https://doi.org/10.1016/j.cma.2020.113214)
