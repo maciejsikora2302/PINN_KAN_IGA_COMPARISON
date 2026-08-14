@@ -170,9 +170,16 @@ class RunConfig(ProblemConfig, MethodConfig):
         params = [f"  {k} = {v}" for k, v in sorted(self.to_dict().items())]
         return "RunConfig:\n" + "=" * 50 + "\n" + "\n".join(params) + "\n" + "=" * 50
 
+def load_config(path: str) -> RunConfig:
+    """Convenience helper to load and return a validated RunConfig instance."""
+    cfg = RunConfig()
+    cfg.load_config(path)
+    return cfg
+
 # Backward compatibility alias
 Config = RunConfig
 SharedConfig = RunConfig
 PINNConfig = RunConfig
 KANConfig = RunConfig
 IGAConfig = RunConfig
+
