@@ -57,7 +57,8 @@ output/
     ├── global_metrics_table.md / .csv
     ├── pareto_efficiency_h1_vs_time.png
     ├── pareto_efficiency_h1_vs_dofs.png
-    ├── robust_loss_ablation.png
+    ├── computational_efficiency_ranking.png
+    ├── formulation_performance_analysis.png
     ├── uniform_vs_adaptive_sampling_impact.png
     └── abstract_summary_overview.png
 ```
@@ -174,7 +175,7 @@ Ensure `train.py` executes exactly 1 method run per invocation, has **zero** plo
 ## Phase 4: Decoupled Parallel Per-Run Visualizations
 
 ### Objective
-Create a standalone visualizer that generates all 5 publication-quality diagnostic plots for a single method run concurrently using `ProcessPoolExecutor`.
+Create a standalone visualizer that generates all 6 publication-quality diagnostic plots (including 3D elevations) for a single method run concurrently using `ProcessPoolExecutor`.
 
 ### Instructions for Agent:
 1. **Create `src/visualization/run_visualizer.py`**:
@@ -184,17 +185,12 @@ Create a standalone visualizer that generates all 5 publication-quality diagnost
      - `plot_2d_solution(x, t, z_pred, title, save_path)`: 2D contour/heatmap of predicted solution $u_h(x, y)$.
      - `plot_2d_error(x, t, z_pred, z_exact, title, save_path)`: 2D contour of pointwise absolute error $|u - u_h|$ in $\log_{10}$ scale.
      - `plot_1d_slices(x, t, z_pred, z_exact, problem, save_path)`: 1D cross-section curves comparing $u_h(x, y)$ vs $u(x, y)$ along $x=0.5$ and near the boundary $y=0.95, y=1.0$.
+     - `plot_3d_surface(x, t, z_pred, z_exact, title, save_path)`: 3D perspective elevation of numerical solution $u_h$ vs exact wireframe and 3D pointwise error surface.
 2. **Create `plot_run.py`**:
    - CLI usage: `python plot_run.py --output-dir <path>` or `python plot_run.py --config <path>`.
-   - Loads `outcomes.npz` and `metadata.yaml` from the target directory.
-   - Computes analytical exact solution using `src.problems.get_problem`.
-   - Launches all 5 plotting tasks in parallel using `concurrent.futures.ProcessPoolExecutor`.
+   - Launches all 6 plotting tasks in parallel using `concurrent.futures.ProcessPoolExecutor`.
    - Saves:
-     - `loss_curve.png`
-     - `h1_error_curve.png`
-     - `prediction_contour.png`
-     - `error_contour.png`
-     - `solution_slices.png`
+     - `loss_curve.png`, `h1_error_curve.png`, `prediction_contour.png`, `error_contour.png`, `solution_slices.png`, `surface_3d.png`
      directly inside `output/<problem_id>/<method_name>/`.
 
 ---
@@ -207,40 +203,40 @@ Aggregate all methods tested on a single problem and produce a comprehensive com
 ### Instructions for Agent:
 1. **Create `src/visualization/problem_comparison.py`**:
    - `class ProblemComparator`:
-     - Scans `output/<problem_id>/` for all method subdirectories (ignoring `comparisons/`).
-     - Loads `metadata.yaml` and `outcomes.npz` for each method.
+     - Scans `output/<problem_id>/` for all method subdirectories in canonical order.
+     - Standardizes all evaluation data onto regular $100 \times 100$ grids using cubic spline interpolation.
      - Generates in `output/<problem_id>/comparisons/`:
-       1. **`convergence_overlay_epochs.png`**: Overlaid $H^1$ error vs. epochs for PINN, R-PINN, NURBS-KAN, R-NURBS-KAN.
-       2. **`convergence_overlay_time.png`**: Overlaid $H^1$ error vs. wall-clock time (seconds) across all neural methods + horizontal dashed reference lines for IGA-FEM methods.
+       1. **`convergence_overlay_epochs.png`**: Overlaid $H^1$ error vs. epochs for PINN and KAN iterative methods.
+       2. **`convergence_overlay_time.png`**: Overlaid $H^1$ error vs. wall-clock time (seconds) with IGA discrete accuracy floors.
        3. **`convergence_overlay_progress.png`**: Overlaid $H^1$ error vs. training progress percentage (0–100%).
-       4. **`side_by_side_solution_grid.png`**: Multi-panel figure comparing Exact Solution against each numerical method.
-       5. **`side_by_side_error_grid.png`**: Side-by-side $\log_{10}$ pointwise error heatmaps with synchronized color scale.
-       6. **`boundary_layer_slice_comparison.png`**: Multi-method 1D cross-sectional cut across the singular boundary layer ($y=0.95, y=1.0$) highlighting spurious oscillations / diffusion smearing vs. exact resolution.
-       7. **`summary_table.md` & `summary_table.csv`**: Formatted Markdown and CSV tables comparing $L_2, H^1, L_\infty$ errors, parameter count / DoFs, and runtimes for this problem.
+       4. **`side_by_side_solution_uniform.png` & `_boundary.png`**: Separated multi-panel solution grids.
+       5. **`side_by_side_error_uniform.png` & `_boundary.png`**: Synchronized $\log_{10}$ error heatmaps.
+       6. **`boundary_layer_slice_comparison.png`**: 1D cross-sectional profiles with highlighted Exact Solution (solid black curve) and contrasting method markers.
+       7. **`summary_table.md` & `summary_table.csv`**: Formatted Markdown and CSV tables including the Computational Efficiency Score (CES).
 2. **Create `plot_problem_comparisons.py`**:
    - CLI usage: `python plot_problem_comparisons.py --problem-dir output/<problem_id>`.
-   - Instantiates `ProblemComparator` and executes the comparison generation.
 
 ---
 
 ## Phase 6: Global Multi-Problem Benchmark Suite
 
 ### Objective
-Synthesize benchmark results across all problems into global comparisons in `output/global_comparisons/` to support the paper claims in `abstract.pdf`.
+Synthesize benchmark results across all problems into global comparisons in `output/global_comparisons/` with non-overlapping Pareto curves, CES rankings, and ablation analyses.
 
 ### Instructions for Agent:
 1. **Create `src/visualization/global_comparison.py`**:
    - `class GlobalComparator`:
      - Scans `output/` across all problem folders.
      - Generates in `output/global_comparisons/`:
-       1. **`global_metrics_table.md` & `.csv`**: Complete summary table of all problems and methods.
-       2. **`pareto_efficiency_h1_vs_time.png`**: Pareto efficiency frontiers ($H^1$ error vs. wall-clock time) for all methods across all problems.
-       3. **`pareto_efficiency_h1_vs_dofs.png`**: Model compactness analysis ($H^1$ error vs. number of trainable parameters / DoFs).
-       4. **`robust_loss_ablation.png`**: Bar/box comparison demonstrating convergence speed and accuracy advantage of robust Gram loss vs standard residual loss.
-       5. **`uniform_vs_adaptive_sampling_impact.png`**: Bar comparison showing error reduction from boundary-layer adaptive collocation / meshes on singular problems.
-       6. **`abstract_summary_overview.png`**: Publication-ready multi-panel figure synthesizing all experimental findings.
+       1. **`global_metrics_table.md` & `.csv`**: Complete summary table of all problems and methods with CES score.
+       2. **`pareto_efficiency_h1_vs_time.png`**: Clean Pareto frontiers ($H^1$ error vs. time) with external structured legends.
+       3. **`pareto_efficiency_h1_vs_dofs.png`**: Model compactness analysis ($H^1$ error vs. DoFs/Parameters).
+       4. **`computational_efficiency_ranking.png`**: Ranked CES bar chart with standard deviation error bars.
+       5. **`formulation_performance_analysis.png`**: Formulation Performance Analysis (Standard Loss vs. Robust Variational Formulation).
+       6. **`uniform_vs_adaptive_sampling_impact.png`**: Uniform vs. boundary-layer adaptive collocation error reduction.
+       7. **`abstract_summary_overview.png`**: High-level synthesis comparing PINN, KAN, and IGA method families.
 2. **Update `plot_comparison_suite.py` and `generate_summary_tables.py`**:
-   - Make them lightweight CLI entry points calling `src/visualization/global_comparison.py`.
+   - Lightweight CLI entry points calling `src/visualization/global_comparison.py`.
 
 ---
 

@@ -65,3 +65,5 @@ outputs/*.npy
 # OS generated files
 .DS_Store
 Thumbs.db
+
+unused/legacy_output_archives

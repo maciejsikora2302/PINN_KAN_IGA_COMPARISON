@@ -1,48 +1,53 @@
 import csv
 import glob
+import math
 import os
+from typing import Any
 
 import matplotlib
 import numpy as np
 import yaml
 
 matplotlib.use("Agg")
-from typing import Any
-
 import matplotlib.pyplot as plt
 
+plt.rcParams.update({
+    "font.family": "serif",
+    "font.size": 11,
+    "axes.labelsize": 12,
+    "axes.titlesize": 13,
+    "xtick.labelsize": 10,
+    "ytick.labelsize": 10,
+    "legend.fontsize": 9,
+    "figure.titlesize": 14,
+    "lines.linewidth": 2.0,
+    "grid.alpha": 0.35,
+    "grid.linestyle": "--",
+})
 
-def safe_float(val: Any, default: float = float('nan')) -> float:
-    if val is None:
-        return default
-    try:
-        return float(val)
-    except (ValueError, TypeError):
-        return default
-
+# Distinct Family Color Palette
 METHOD_COLORS = {
+    # PINN Family (Blues)
     "pinn_uniform": "#1f77b4",
-    "pinn_boundary": "#aec7e8",
-    "r_pinn_uniform": "#ff7f0e",
-    "r_pinn_boundary": "#ffbb78",
+    "pinn_boundary": "#4ba3e3",
+    "r_pinn_uniform": "#004c6d",
+    "r_pinn_boundary": "#257d9d",
+    # KAN Family (Greens)
     "nurbs_kan_uniform": "#2ca02c",
-    "nurbs_kan_boundary": "#98df8a",
-    "r_nurbs_kan_uniform": "#d62728",
-    "r_nurbs_kan_boundary": "#ff9896",
+    "nurbs_kan_boundary": "#66c2a5",
+    "r_nurbs_kan_uniform": "#005a24",
+    "r_nurbs_kan_boundary": "#238b45",
+    # IGA Family (Purples/Reds)
     "iga_standard_uniform": "#9467bd",
     "iga_supg_uniform": "#8c564b",
-    "iga_supg_adaptive": "#e377c2",
-    "iga_igrm_adaptive": "#7f7f7f",
+    "iga_supg_adaptive": "#d62728",
+    "iga_igrm_adaptive": "#e377c2",
 }
 
-METHOD_MARKERS = {
-    "pinn": "o",
-    "r_pinn": "s",
-    "nurbs_kan": "^",
-    "r_nurbs_kan": "v",
-    "iga_standard": "D",
-    "iga_supg": "P",
-    "iga_igrm": "X",
+PROBLEM_MARKERS = {
+    "poisson_sine": "o",
+    "poisson_exp": "s",
+    "eriksson_johnson": "^",
 }
 
 METHOD_LABELS = {
@@ -59,6 +64,31 @@ METHOD_LABELS = {
     "iga_supg_adaptive": "SUPG IGA (Adaptive)",
     "iga_igrm_adaptive": "iGRM IGA (Adaptive)",
 }
+
+
+def calculate_ces(h1_error: float, elapsed_seconds: float, dofs_or_params: int) -> float:
+    """
+    Calculates the Computational Efficiency Score (CES):
+    CES = -log10( H1_error * sqrt(Time) * (DoFs)^(1/4) )
+    Higher score indicates superior accuracy per unit of compute and memory resource.
+    """
+    try:
+        h1 = max(float(h1_error), 1e-15)
+        t = max(float(elapsed_seconds), 1e-4)
+        d = max(int(dofs_or_params), 1)
+        cost = h1 * math.sqrt(t) * (d ** 0.25)
+        return -math.log10(cost)
+    except Exception:
+        return float('nan')
+
+
+def safe_float(val: Any, default: float = float('nan')) -> float:
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return default
 
 
 class GlobalComparator:
@@ -83,7 +113,7 @@ class GlobalComparator:
             problem_id = os.path.basename(problem_dir)
             method_name = os.path.basename(run_dir)
 
-            if problem_id == "global_comparisons" or method_name == "comparisons":
+            if problem_id in ("global_comparisons", "test_runs") or method_name == "comparisons":
                 continue
 
             outcomes_path = os.path.join(run_dir, "outcomes.npz")
@@ -91,7 +121,7 @@ class GlobalComparator:
                 continue
 
             try:
-                with open(meta_path, "r") as f:
+                with open(meta_path, "r", encoding="utf-8") as f:
                     meta = yaml.safe_load(f) or {}
                 npz_data = dict(np.load(outcomes_path, allow_pickle=True))
             except Exception as e:
@@ -99,58 +129,57 @@ class GlobalComparator:
                 continue
 
             cfg = meta.get("config", {})
+            prob_name = cfg.get("PROBLEM_NAME", cfg.get("problem_id", problem_id))
+            eps = safe_float(cfg.get("EPSILON", 0.01))
+
             res = meta.get("results", {})
-            solver_key = list(res.keys())[0] if res else ""
-            s_dict = res.get(solver_key, {})
+            sol_key = list(res.keys())[0] if res else ""
+            sol_meta = res.get(sol_key, {})
 
-            problem_name = cfg.get("PROBLEM_NAME", problem_id)
-            epsilon = float(cfg.get("EPSILON", 0.01))
-            solver_type = cfg.get("SOLVER", s_dict.get("solver", "unknown")).lower()
-            rpinn = bool(cfg.get("RPINN", 0))
-            sampler_type = cfg.get("SAMPLER_TYPE", s_dict.get("sampler_or_mesh", "uniform"))
-            dofs = int(s_dict.get("trainable_parameters_or_dofs", 0))
+            dofs = (
+                sol_meta.get("trainable_parameters_or_dofs")
+                or sol_meta.get("trainable_parameters")
+                or sol_meta.get("degrees_of_freedom")
+                or 0
+            )
 
-            h1 = safe_float(npz_data.get("final_h1_error", s_dict.get("final_h1_error", np.nan)))
-            l2 = safe_float(npz_data.get("final_l2_error", s_dict.get("final_l2_error", np.nan)))
-            linf = safe_float(npz_data.get("final_linf_error", s_dict.get("final_linf_error", np.nan)))
-            time_sec = safe_float(npz_data.get("elapsed_seconds", s_dict.get("elapsed_seconds", np.nan)))
+            h1 = safe_float(npz_data.get("final_h1_error", sol_meta.get("final_h1_error")))
+            l2 = safe_float(npz_data.get("final_l2_error", sol_meta.get("final_l2_error")))
+            linf = safe_float(npz_data.get("final_linf_error", sol_meta.get("final_linf_error")))
+            time_s = safe_float(npz_data.get("elapsed_seconds", sol_meta.get("elapsed_seconds")))
+            ces = calculate_ces(h1, time_s, dofs)
 
             self.records.append({
                 "problem_id": problem_id,
-                "problem_name": problem_name,
-                "epsilon": epsilon,
+                "problem_name": prob_name,
+                "epsilon": eps,
                 "method_name": method_name,
-                "solver_type": solver_type,
-                "rpinn": rpinn,
-                "sampler_type": sampler_type,
-                "dofs": dofs,
+                "solver": cfg.get("SOLVER", sol_meta.get("solver", "unknown")),
+                "rpinn": int(cfg.get("RPINN", 0)),
+                "sampler_type": cfg.get("SAMPLER_TYPE", cfg.get("IGA_MESH_TYPE", "uniform")),
                 "h1_error": h1,
                 "l2_error": l2,
                 "linf_error": linf,
-                "elapsed_seconds": time_sec,
+                "elapsed_seconds": time_s,
+                "dofs": dofs,
+                "ces_score": ces,
                 "run_dir": run_dir,
-                "npz_data": npz_data,
-                "metadata": meta,
             })
 
-    def _get_marker(self, method_name: str) -> str:
-        for k, m in METHOD_MARKERS.items():
-            if k in method_name:
+    def _get_color(self, method_name: str, idx: int = 0) -> str:
+        return METHOD_COLORS.get(method_name, plt.cm.tab10(idx % 10))
+
+    def _get_marker(self, problem_name: str) -> str:
+        for k, m in PROBLEM_MARKERS.items():
+            if k in problem_name.lower():
                 return m
         return "o"
-
-    def _get_color(self, method_name: str, idx: int = 0) -> str:
-        if method_name in METHOD_COLORS:
-            return METHOD_COLORS[method_name]
-        colormap: Any = plt.cm.tab10
-        colors = colormap.colors
-        return colors[idx % len(colors)]
 
     def _get_label(self, method_name: str) -> str:
         return METHOD_LABELS.get(method_name, method_name.replace("_", " ").title())
 
     def generate_all(self):
-        """Generates all 6 global benchmark synthesis artifacts."""
+        """Generates all 7 global benchmark synthesis artifacts."""
         if not self.records:
             print(f"No completed method runs found in {self.root_dir}.")
             return
@@ -159,7 +188,8 @@ class GlobalComparator:
         self.generate_global_metrics_table()
         self.plot_pareto_h1_vs_time()
         self.plot_pareto_h1_vs_dofs()
-        self.plot_robust_loss_ablation()
+        self.plot_computational_efficiency_ranking()
+        self.plot_formulation_performance_analysis()
         self.plot_uniform_vs_adaptive_sampling_impact()
         self.plot_abstract_summary_overview()
         print(f"Global synthesis suite saved to: {self.global_dir}\n")
@@ -176,6 +206,7 @@ class GlobalComparator:
             "H1 Semi-Norm Error",
             "L2 Error",
             "L_inf Error",
+            "CES Score",
         ]
         rows = []
         for r in self.records:
@@ -183,6 +214,7 @@ class GlobalComparator:
             l2 = r["l2_error"]
             linf = r["linf_error"]
             time_s = r["elapsed_seconds"]
+            ces = r["ces_score"]
 
             rows.append({
                 "Problem": r["problem_name"],
@@ -194,6 +226,7 @@ class GlobalComparator:
                 "H1 Semi-Norm Error": f"{h1:.6e}" if np.isfinite(h1) else "N/A",
                 "L2 Error": f"{l2:.6e}" if np.isfinite(l2) else "N/A",
                 "L_inf Error": f"{linf:.6e}" if np.isfinite(linf) else "N/A",
+                "CES Score": f"{ces:.2f}" if np.isfinite(ces) else "N/A",
             })
 
         # Sort by Problem, Epsilon, Method
@@ -219,9 +252,10 @@ class GlobalComparator:
         print(f"  [+] Saved: {md_name}")
 
     def plot_pareto_h1_vs_time(self, save_name: str = "pareto_efficiency_h1_vs_time.png"):
-        """2. Pareto efficiency frontiers (H1 error vs. wall-clock time) for all methods."""
-        fig, ax = plt.subplots(figsize=(9, 6), dpi=300)
+        """2. Clean Pareto efficiency frontier (H1 error vs. wall-clock time) with collision-free legends."""
+        fig, ax = plt.subplots(figsize=(10, 6.5), dpi=300)
 
+        plotted_methods = set()
         for i, r in enumerate(self.records):
             time_s = r["elapsed_seconds"]
             h1 = r["h1_error"]
@@ -229,255 +263,274 @@ class GlobalComparator:
                 continue
 
             color = self._get_color(r["method_name"], i)
-            marker = self._get_marker(r["method_name"])
+            marker = self._get_marker(r["problem_name"])
             label = self._get_label(r["method_name"])
-            prob_label = f"{r['problem_name']} (eps={r['epsilon']})"
+            legend_label = label if label not in plotted_methods else ""
+            if legend_label:
+                plotted_methods.add(label)
 
             ax.scatter(
                 time_s, h1,
-                color=color, marker=marker, s=90, alpha=0.85,
-                edgecolors="black", linewidths=0.7,
-                label=label
-            )
-            ax.annotate(
-                f"{label}\n[{r['problem_name'][:7]}]",
-                (time_s, h1),
-                textcoords="offset points",
-                xytext=(5, 5),
-                fontsize=8,
-                alpha=0.85
+                color=color, marker=marker, s=110, alpha=0.9,
+                edgecolors="black", linewidths=0.8,
+                label=legend_label
             )
 
         ax.set_xscale("log")
         ax.set_yscale("log")
-        ax.set_xlabel("Wall-Clock Time (seconds) [Log Scale]", fontweight="bold")
-        ax.set_ylabel("$H^1$ Semi-Norm Error [Log Scale]", fontweight="bold")
-        ax.set_title("Pareto Efficiency: Computational Time vs $H^1$ Error", fontweight="bold", pad=12)
+        ax.set_xlabel("Wall-Clock Execution Time (seconds, Log Scale)", fontweight="bold")
+        ax.set_ylabel("$H^1$ Semi-Norm Error (Log Scale)", fontweight="bold")
+        ax.set_title("Pareto Efficiency: $H^1$ Accuracy vs. Compute Time", fontweight="bold", pad=12)
         ax.grid(True, which="both", linestyle="--", alpha=0.35)
 
-        # De-duplicate legend
-        handles, labels = ax.get_legend_handles_labels()
-        by_label = dict(zip(labels, handles))
-        if by_label:
-            ax.legend(by_label.values(), by_label.keys(), bbox_to_anchor=(1.02, 1.0), loc="upper left", frameon=True)
+        # Place clean legend outside to prevent any text overlaps
+        ax.legend(
+            title="Methods & Solvers",
+            frameon=True,
+            loc="upper left",
+            bbox_to_anchor=(1.02, 1.0),
+            fontsize=8.5,
+            title_fontsize=9.5
+        )
 
         save_path = os.path.join(self.global_dir, save_name)
         plt.tight_layout()
         fig.savefig(save_path, dpi=300, bbox_inches="tight")
         plt.close(fig)
-        print(f"  [+] Saved: {save_name}")
 
     def plot_pareto_h1_vs_dofs(self, save_name: str = "pareto_efficiency_h1_vs_dofs.png"):
-        """3. Model compactness analysis (H1 error vs. number of parameters / DoFs)."""
-        fig, ax = plt.subplots(figsize=(9, 6), dpi=300)
+        """3. Clean Pareto efficiency frontier (H1 error vs. DoFs / trainable parameters)."""
+        fig, ax = plt.subplots(figsize=(10, 6.5), dpi=300)
 
+        plotted_methods = set()
         for i, r in enumerate(self.records):
             dofs = r["dofs"]
             h1 = r["h1_error"]
-            if not (dofs > 0 and np.isfinite(h1) and h1 > 0):
+            if not (np.isfinite(dofs) and np.isfinite(h1) and dofs > 0 and h1 > 0):
                 continue
 
             color = self._get_color(r["method_name"], i)
-            marker = self._get_marker(r["method_name"])
+            marker = self._get_marker(r["problem_name"])
             label = self._get_label(r["method_name"])
+            legend_label = label if label not in plotted_methods else ""
+            if legend_label:
+                plotted_methods.add(label)
 
             ax.scatter(
                 dofs, h1,
-                color=color, marker=marker, s=90, alpha=0.85,
-                edgecolors="black", linewidths=0.7,
-                label=label
-            )
-            ax.annotate(
-                f"{label}",
-                (dofs, h1),
-                textcoords="offset points",
-                xytext=(5, 5),
-                fontsize=8,
-                alpha=0.85
+                color=color, marker=marker, s=110, alpha=0.9,
+                edgecolors="black", linewidths=0.8,
+                label=legend_label
             )
 
         ax.set_xscale("log")
         ax.set_yscale("log")
-        ax.set_xlabel("Number of Trainable Parameters / DoFs [Log Scale]", fontweight="bold")
-        ax.set_ylabel("$H^1$ Semi-Norm Error [Log Scale]", fontweight="bold")
-        ax.set_title("Model Compactness: Degrees of Freedom vs $H^1$ Accuracy", fontweight="bold", pad=12)
+        ax.set_xlabel("Degrees of Freedom / Trainable Parameters (Log Scale)", fontweight="bold")
+        ax.set_ylabel("$H^1$ Semi-Norm Error (Log Scale)", fontweight="bold")
+        ax.set_title("Pareto Frontier: $H^1$ Accuracy vs. Model Representation Size", fontweight="bold", pad=12)
         ax.grid(True, which="both", linestyle="--", alpha=0.35)
 
-        handles, labels = ax.get_legend_handles_labels()
-        by_label = dict(zip(labels, handles))
-        if by_label:
-            ax.legend(by_label.values(), by_label.keys(), bbox_to_anchor=(1.02, 1.0), loc="upper left", frameon=True)
+        ax.legend(
+            title="Methods & Solvers",
+            frameon=True,
+            loc="upper left",
+            bbox_to_anchor=(1.02, 1.0),
+            fontsize=8.5,
+            title_fontsize=9.5
+        )
 
         save_path = os.path.join(self.global_dir, save_name)
         plt.tight_layout()
         fig.savefig(save_path, dpi=300, bbox_inches="tight")
         plt.close(fig)
-        print(f"  [+] Saved: {save_name}")
+
+    def plot_computational_efficiency_ranking(self, save_name: str = "computational_efficiency_ranking.png"):
+        """4. Bar chart of Computational Efficiency Score (CES) across all methods."""
+        fig, ax = plt.subplots(figsize=(11, 6), dpi=300)
+
+        # Average CES per method across problems
+        method_ces: dict[str, list[float]] = {}
+        for r in self.records:
+            ces = r["ces_score"]
+            if np.isfinite(ces):
+                method_ces.setdefault(r["method_name"], []).append(ces)
+
+        if not method_ces:
+            plt.close(fig)
+            return
+
+        sorted_methods = sorted(method_ces.keys(), key=lambda m: np.mean(method_ces[m]), reverse=True)
+        means = [np.mean(method_ces[m]) for m in sorted_methods]
+        stds = [np.std(method_ces[m]) if len(method_ces[m]) > 1 else 0.0 for m in sorted_methods]
+        labels = [self._get_label(m) for m in sorted_methods]
+        colors = [self._get_color(m) for m in sorted_methods]
+
+        x_pos = np.arange(len(sorted_methods))
+        bars = ax.bar(x_pos, means, yerr=stds, color=colors, edgecolor="black", alpha=0.85, capsize=4)
+
+        ax.set_ylabel("Computational Efficiency Score (CES)", fontweight="bold")
+        ax.set_title("Overall Computational Efficiency Score (Higher is Better)", fontweight="bold", pad=12)
+        ax.set_xticks(x_pos)
+        ax.set_xticklabels(labels, rotation=40, ha="right", fontsize=9)
+        ax.grid(True, axis="y", linestyle="--", alpha=0.4)
+
+        for bar, mean_val in zip(bars, means):
+            height = bar.get_height()
+            offset = 0.1 if height >= 0 else -0.3
+            ax.annotate(
+                f"{mean_val:.2f}",
+                xy=(bar.get_x() + bar.get_width() / 2, height + offset),
+                xytext=(0, 3),
+                textcoords="offset points",
+                ha="center", va="bottom" if height >= 0 else "top",
+                fontsize=8.5, fontweight="bold"
+            )
+
+        save_path = os.path.join(self.global_dir, save_name)
+        plt.tight_layout()
+        fig.savefig(save_path, dpi=300, bbox_inches="tight")
+        plt.close(fig)
+
+    def plot_formulation_performance_analysis(self, save_name: str = "formulation_performance_analysis.png"):
+        """5. Formulation Performance Analysis (Standard vs. Robust) across all models."""
+        fig, ax = plt.subplots(figsize=(12, 6), dpi=300)
+
+        pairs = [
+            ("pinn_uniform", "r_pinn_uniform", "PINN\n(Uniform)"),
+            ("pinn_boundary", "r_pinn_boundary", "PINN\n(Boundary Layer)"),
+            ("nurbs_kan_uniform", "r_nurbs_kan_uniform", "NURBS-KAN\n(Uniform)"),
+            ("nurbs_kan_boundary", "r_nurbs_kan_boundary", "NURBS-KAN\n(Boundary Layer)"),
+            ("iga_standard_uniform", "iga_supg_uniform", "IGA Galerkin vs\nSUPG (Uniform)"),
+            ("iga_standard_uniform", "iga_supg_adaptive", "IGA Galerkin vs\nSUPG (Adaptive)"),
+            ("iga_standard_uniform", "iga_igrm_adaptive", "IGA Galerkin vs\niGRM (Adaptive)"),
+        ]
+
+        def get_avg_h1(m_name: str) -> float:
+            vals = [r["h1_error"] for r in self.records if r["method_name"] == m_name and np.isfinite(r["h1_error"])]
+            return float(np.mean(vals)) if vals else float('nan')
+
+        valid_pairs = []
+        std_vals, rob_vals, labels = [], [], []
+        for std_m, rob_m, lbl in pairs:
+            v_std = get_avg_h1(std_m)
+            v_rob = get_avg_h1(rob_m)
+            if np.isfinite(v_std) or np.isfinite(v_rob):
+                valid_pairs.append((std_m, rob_m, lbl))
+                std_vals.append(v_std if np.isfinite(v_std) else 1e-10)
+                rob_vals.append(v_rob if np.isfinite(v_rob) else 1e-10)
+                labels.append(lbl)
+
+        if not valid_pairs:
+            plt.close(fig)
+            return
+
+        x = np.arange(len(labels))
+        width = 0.35
+
+        ax.bar(x - width/2, std_vals, width, label="Standard Formulation", color="#1f77b4", edgecolor="black", alpha=0.85)
+        ax.bar(x + width/2, rob_vals, width, label="Robust / Variational Formulation", color="#d62728", edgecolor="black", alpha=0.85)
+
+        ax.set_yscale("log")
+        ax.set_ylabel("$H^1$ Semi-Norm Error (Log Scale)", fontweight="bold")
+        ax.set_title("Formulation Performance Analysis (Standard vs. Robust Variational)", fontweight="bold", pad=12)
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, rotation=0, ha="center", fontsize=8.5)
+        ax.legend(frameon=True, loc="upper right")
+        ax.grid(True, which="both", axis="y", linestyle="--", alpha=0.35)
+
+        save_path = os.path.join(self.global_dir, save_name)
+        plt.tight_layout()
+        fig.savefig(save_path, dpi=300, bbox_inches="tight")
+        plt.close(fig)
 
     def plot_robust_loss_ablation(self, save_name: str = "robust_loss_ablation.png"):
-        """4. Bar/comparison showing effect of Gram-inverted Robust Loss (RPINN) vs Standard Loss."""
-        fig, ax = plt.subplots(figsize=(8, 5.5), dpi=300)
-
-        # Compare pairs (pinn vs r_pinn, nurbs_kan vs r_nurbs_kan)
-        labels = []
-        standard_errors = []
-        robust_errors = []
-
-        problems = sorted(list(set(r["problem_id"] for r in self.records)))
-        for p in problems:
-            p_recs = [r for r in self.records if r["problem_id"] == p]
-            # PINN pair
-            std_pinn = next((r for r in p_recs if r["method_name"] == "pinn_uniform"), None)
-            rob_pinn = next((r for r in p_recs if r["method_name"] == "r_pinn_uniform"), None)
-            if std_pinn and rob_pinn:
-                labels.append(f"PINN\n({p})")
-                standard_errors.append(std_pinn["h1_error"])
-                robust_errors.append(rob_pinn["h1_error"])
-
-            # KAN pair
-            std_kan = next((r for r in p_recs if r["method_name"] == "nurbs_kan_uniform"), None)
-            rob_kan = next((r for r in p_recs if r["method_name"] == "r_nurbs_kan_uniform"), None)
-            if std_kan and rob_kan:
-                labels.append(f"NURBS-KAN\n({p})")
-                standard_errors.append(std_kan["h1_error"])
-                robust_errors.append(rob_kan["h1_error"])
-
-        if not labels:
-            # Fallback mock/current record comparison
-            for r in self.records:
-                labels.append(self._get_label(r["method_name"]))
-                standard_errors.append(r["h1_error"])
-                robust_errors.append(r["h1_error"] * 0.8)
-
-        x_idx = np.arange(len(labels))
-        width = 0.35
-
-        ax.bar(x_idx - width/2, standard_errors, width, label="Standard Loss", color="#1f77b4", alpha=0.85)
-        ax.bar(x_idx + width/2, robust_errors, width, label="Robust Gram Loss", color="#ff7f0e", alpha=0.85)
-
-        ax.set_yscale("log")
-        ax.set_ylabel("$H^1$ Semi-Norm Error", fontweight="bold")
-        ax.set_title("Robust Gram Loss Ablation Study ($H^1$ Error Reduction)", fontweight="bold", pad=12)
-        ax.set_xticks(x_idx)
-        ax.set_xticklabels(labels, fontsize=9)
-        ax.grid(True, axis="y", linestyle="--", alpha=0.35)
-        ax.legend(frameon=True)
-
-        save_path = os.path.join(self.global_dir, save_name)
-        plt.tight_layout()
-        fig.savefig(save_path, dpi=300, bbox_inches="tight")
-        plt.close(fig)
-        print(f"  [+] Saved: {save_name}")
+        """Backward compatibility alias for plot_formulation_performance_analysis."""
+        self.plot_formulation_performance_analysis(save_name=save_name)
 
     def plot_uniform_vs_adaptive_sampling_impact(self, save_name: str = "uniform_vs_adaptive_sampling_impact.png"):
-        """5. Impact of Boundary-Layer Adaptive Sampling vs Uniform Collocation."""
-        fig, ax = plt.subplots(figsize=(8, 5.5), dpi=300)
+        """6. Compares Uniform vs. Boundary Layer / Adaptive point collocation across all methods."""
+        fig, ax = plt.subplots(figsize=(11, 6), dpi=300)
 
-        labels = []
-        uniform_errors = []
-        adaptive_errors = []
+        pairs = [
+            ("pinn_uniform", "pinn_boundary", "Standard PINN"),
+            ("r_pinn_uniform", "r_pinn_boundary", "Robust PINN"),
+            ("nurbs_kan_uniform", "nurbs_kan_boundary", "Standard NURBS-KAN"),
+            ("r_nurbs_kan_uniform", "r_nurbs_kan_boundary", "Robust NURBS-KAN"),
+            ("iga_standard_uniform", "iga_supg_adaptive", "Standard vs Adaptive IGA"),
+            ("iga_supg_uniform", "iga_supg_adaptive", "SUPG Uniform vs Adaptive"),
+        ]
 
-        problems = sorted(list(set(r["problem_id"] for r in self.records)))
-        for p in problems:
-            p_recs = [r for r in self.records if r["problem_id"] == p]
-            # PINN uniform vs boundary
-            u_pinn = next((r for r in p_recs if "uniform" in r["method_name"] and r["solver_type"] == "pinn"), None)
-            b_pinn = next((r for r in p_recs if "boundary" in r["method_name"] and r["solver_type"] == "pinn"), None)
-            if u_pinn and b_pinn:
-                labels.append(f"PINN\n({p})")
-                uniform_errors.append(u_pinn["h1_error"])
-                adaptive_errors.append(b_pinn["h1_error"])
+        def get_avg_h1(m_name: str) -> float:
+            vals = [r["h1_error"] for r in self.records if r["method_name"] == m_name and np.isfinite(r["h1_error"])]
+            return float(np.mean(vals)) if vals else float('nan')
 
-            # IGA uniform vs adaptive
-            u_iga = next((r for r in p_recs if "uniform" in r["method_name"] and r["solver_type"] == "iga"), None)
-            a_iga = next((r for r in p_recs if "adaptive" in r["method_name"] and r["solver_type"] == "iga"), None)
-            if u_iga and a_iga:
-                labels.append(f"IGA\n({p})")
-                uniform_errors.append(u_iga["h1_error"])
-                adaptive_errors.append(a_iga["h1_error"])
+        valid_labels, unif_vals, adapt_vals = [], [], []
+        for u_m, a_m, lbl in pairs:
+            v_u = get_avg_h1(u_m)
+            v_a = get_avg_h1(a_m)
+            if np.isfinite(v_u) or np.isfinite(v_a):
+                valid_labels.append(lbl)
+                unif_vals.append(v_u if np.isfinite(v_u) else 1e-10)
+                adapt_vals.append(v_a if np.isfinite(v_a) else 1e-10)
 
-        if not labels:
-            for r in self.records:
-                labels.append(self._get_label(r["method_name"]))
-                uniform_errors.append(r["h1_error"])
-                adaptive_errors.append(r["h1_error"] * 0.5)
+        if not valid_labels:
+            plt.close(fig)
+            return
 
-        x_idx = np.arange(len(labels))
+        x = np.arange(len(valid_labels))
         width = 0.35
 
-        ax.bar(x_idx - width/2, uniform_errors, width, label="Uniform Collocation / Mesh", color="#2ca02c", alpha=0.85)
-        ax.bar(x_idx + width/2, adaptive_errors, width, label="Boundary-Layer Adaptive", color="#d62728", alpha=0.85)
+        ax.bar(x - width/2, unif_vals, width, label="Uniform Collocation / Mesh", color="#2ca02c", edgecolor="black", alpha=0.85)
+        ax.bar(x + width/2, adapt_vals, width, label="Boundary-Layer / Adaptive Mesh", color="#9467bd", edgecolor="black", alpha=0.85)
 
         ax.set_yscale("log")
-        ax.set_ylabel("$H^1$ Semi-Norm Error", fontweight="bold")
-        ax.set_title("Impact of Boundary-Layer Adaptive Mesh / Collocation", fontweight="bold", pad=12)
-        ax.set_xticks(x_idx)
-        ax.set_xticklabels(labels, fontsize=9)
-        ax.grid(True, axis="y", linestyle="--", alpha=0.35)
+        ax.set_ylabel("$H^1$ Semi-Norm Error (Log Scale)", fontweight="bold")
+        ax.set_title("Collocation Sampling Impact: Uniform vs. Boundary Layer Enriched", fontweight="bold", pad=12)
+        ax.set_xticks(x)
+        ax.set_xticklabels(valid_labels, rotation=30, ha="right", fontsize=9)
         ax.legend(frameon=True)
+        ax.grid(True, which="both", axis="y", linestyle="--", alpha=0.35)
 
         save_path = os.path.join(self.global_dir, save_name)
         plt.tight_layout()
         fig.savefig(save_path, dpi=300, bbox_inches="tight")
         plt.close(fig)
-        print(f"  [+] Saved: {save_name}")
 
     def plot_abstract_summary_overview(self, save_name: str = "abstract_summary_overview.png"):
-        """6. Publication-ready multi-panel synthesis figure."""
-        fig, axes = plt.subplots(2, 2, figsize=(16, 12), dpi=300)
+        """7. High-level comparative overview spanning PINN, KAN, and IGA families."""
+        fig, axes = plt.subplots(1, 2, figsize=(14, 5.5), dpi=300)
 
-        # Panel 1: Pareto H1 vs Time
-        ax1 = axes[0, 0]
-        for i, r in enumerate(self.records):
-            t = r["elapsed_seconds"]
-            h1 = r["h1_error"]
-            if np.isfinite(t) and np.isfinite(h1) and t > 0 and h1 > 0:
-                ax1.scatter(t, h1, color=self._get_color(r["method_name"], i), marker=self._get_marker(r["method_name"]), s=70, label=self._get_label(r["method_name"]))
-        ax1.set_xscale("log")
+        families = ["pinn", "kan", "iga"]
+        family_names = ["PINN Family", "KAN Family", "IGA Family"]
+
+        h1_by_fam = []
+        time_by_fam = []
+
+        for fam in families:
+            matching = [r for r in self.records if fam in r["solver"].lower() or fam in r["method_name"].lower()]
+            h1s = [r["h1_error"] for r in matching if np.isfinite(r["h1_error"]) and r["h1_error"] > 0]
+            times = [r["elapsed_seconds"] for r in matching if np.isfinite(r["elapsed_seconds"]) and r["elapsed_seconds"] > 0]
+            h1_by_fam.append(float(np.mean(h1s)) if h1s else 1.0)
+            time_by_fam.append(float(np.mean(times)) if times else 1.0)
+
+        # Subplot 1: Average H1 Error
+        ax1 = axes[0]
+        bars1 = ax1.bar(family_names, h1_by_fam, color=["#1f77b4", "#2ca02c", "#9467bd"], edgecolor="black", alpha=0.85)
         ax1.set_yscale("log")
-        ax1.set_xlabel("Time (seconds)")
-        ax1.set_ylabel("$H^1$ Error")
-        ax1.set_title("(a) Computational Efficiency Frontier", fontweight="bold")
-        ax1.grid(True, which="both", linestyle="--", alpha=0.3)
+        ax1.set_ylabel("Mean $H^1$ Semi-Norm Error", fontweight="bold")
+        ax1.set_title("Method Family Accuracy ($H^1$ Error)", fontweight="bold", pad=10)
+        ax1.grid(True, which="both", axis="y", linestyle="--", alpha=0.35)
 
-        # Panel 2: Pareto H1 vs DoFs
-        ax2 = axes[0, 1]
-        for i, r in enumerate(self.records):
-            dofs = r["dofs"]
-            h1 = r["h1_error"]
-            if dofs > 0 and np.isfinite(h1) and h1 > 0:
-                ax2.scatter(dofs, h1, color=self._get_color(r["method_name"], i), marker=self._get_marker(r["method_name"]), s=70)
-        ax2.set_xscale("log")
+        # Subplot 2: Average Wall-Clock Time
+        ax2 = axes[1]
+        bars2 = ax2.bar(family_names, time_by_fam, color=["#1f77b4", "#2ca02c", "#9467bd"], edgecolor="black", alpha=0.85)
         ax2.set_yscale("log")
-        ax2.set_xlabel("DoFs / Trainable Parameters")
-        ax2.set_ylabel("$H^1$ Error")
-        ax2.set_title("(b) Model Compactness vs Accuracy", fontweight="bold")
-        ax2.grid(True, which="both", linestyle="--", alpha=0.3)
+        ax2.set_ylabel("Mean Runtime (seconds)", fontweight="bold")
+        ax2.set_title("Method Family Compute Time", fontweight="bold", pad=10)
+        ax2.grid(True, which="both", axis="y", linestyle="--", alpha=0.35)
 
-        # Panel 3: Error distribution across solvers
-        ax3 = axes[1, 0]
-        solvers = list(set(r["solver_type"] for r in self.records))
-        err_by_solver = [[r["h1_error"] for r in self.records if r["solver_type"] == s and np.isfinite(r["h1_error"])] for s in solvers]
-        if err_by_solver and any(len(e) > 0 for e in err_by_solver):
-            ax3.boxplot(err_by_solver, tick_labels=[s.upper() for s in solvers])
-            ax3.set_yscale("log")
-        ax3.set_ylabel("$H^1$ Error")
-        ax3.set_title("(c) Error Distribution by Solver Family", fontweight="bold")
-        ax3.grid(True, axis="y", linestyle="--", alpha=0.3)
-
-        # Panel 4: Runtime by solver
-        ax4 = axes[1, 1]
-        time_by_solver = [[r["elapsed_seconds"] for r in self.records if r["solver_type"] == s and np.isfinite(r["elapsed_seconds"])] for s in solvers]
-        if time_by_solver and any(len(t) > 0 for t in time_by_solver):
-            ax4.boxplot(time_by_solver, tick_labels=[s.upper() for s in solvers])
-            ax4.set_yscale("log")
-        ax4.set_ylabel("Elapsed Time (s)")
-        ax4.set_title("(d) Execution Runtime Distribution", fontweight="bold")
-        ax4.grid(True, axis="y", linestyle="--", alpha=0.3)
-
-        fig.suptitle("PINN vs KAN vs IGA Benchmark Synthesis Overview", fontsize=16, fontweight="bold", y=1.01)
+        fig.suptitle("High-Level Benchmark Synthesis: PINN vs. KAN vs. IGA", fontsize=14, fontweight="bold", y=1.02)
         save_path = os.path.join(self.global_dir, save_name)
         plt.tight_layout()
         fig.savefig(save_path, dpi=300, bbox_inches="tight")
         plt.close(fig)
-        print(f"  [+] Saved: {save_name}")

@@ -21,6 +21,7 @@ import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from config import RunConfig
 
 import yaml
 
@@ -149,14 +150,11 @@ def main():
     # Partition into GPU (PINN/KAN) and CPU (IGA)
     gpu_configs = []
     cpu_configs = []
-    affected_problem_dirs = set()
-    from config import RunConfig
     for c in configs:
         try:
             cfg = RunConfig()
             cfg.load_config(c)
             solv = cfg.SOLVER.lower()
-            affected_problem_dirs.add(os.path.join("output", cfg.problem_id))
         except Exception:
             solv = "pinn"
 
@@ -164,6 +162,18 @@ def main():
             gpu_configs.append(c)
         else:
             cpu_configs.append(c)
+
+    # Track affected problem output directories
+    affected_problem_dirs = set()
+    base_output_dir = "output/test_runs" if args.test else "output"
+
+    for c in configs:
+        try:
+            cfg = RunConfig()
+            cfg.load_config(c)
+            affected_problem_dirs.add(os.path.join(base_output_dir, cfg.problem_id))
+        except Exception:
+            pass
 
     results = {}
 
@@ -237,7 +247,7 @@ def main():
     print("\n" + "=" * 80)
     print("=== GENERATING GLOBAL BENCHMARK SYNTHESIS & METRICS ===")
     print("=" * 80)
-    run_global_comparisons(python_exe, output_dir="output")
+    run_global_comparisons(python_exe, output_dir=base_output_dir)
 
     # Summary Report
     total_elapsed = time.time() - total_start

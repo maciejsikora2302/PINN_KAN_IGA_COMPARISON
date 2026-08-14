@@ -267,3 +267,88 @@ def plot_1d_slices(
     fig.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
     return save_path
+
+
+def plot_3d_surface(
+    x: np.ndarray,
+    t: np.ndarray,
+    z_pred: np.ndarray,
+    z_exact: np.ndarray,
+    title: str = "3D Solution & Pointwise Error Elevation",
+    save_path: str = "surface_3d.png"
+) -> str:
+    """
+    Renders publication-quality 3D elevation surface plots comparing Predicted vs. Exact and Error.
+    """
+    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+    from scipy.interpolate import griddata
+
+    os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
+    fig = plt.figure(figsize=(15, 6), dpi=300)
+
+    x_f = np.asarray(x).flatten()
+    t_f = np.asarray(t).flatten()
+    zp_f = np.asarray(z_pred).flatten()
+    ze_f = np.asarray(z_exact).flatten()
+    err_f = np.abs(ze_f - zp_f)
+
+    # Standardize onto regular 100x100 grid for surface plotting
+    xi = np.linspace(0.0, 1.0, 100)
+    ti = np.linspace(0.0, 1.0, 100)
+    XI, TI = np.meshgrid(xi, ti)
+
+    points = np.column_stack((x_f, t_f))
+    ZI_pred = griddata(points, zp_f, (XI, TI), method="cubic")
+    ZI_exact = griddata(points, ze_f, (XI, TI), method="cubic")
+    ZI_err = griddata(points, err_f, (XI, TI), method="cubic")
+
+    # Fallback to nearest if NaN at edges
+    if np.any(np.isnan(ZI_pred)):
+        ZI_pred = griddata(points, zp_f, (XI, TI), method="nearest")
+        ZI_exact = griddata(points, ze_f, (XI, TI), method="nearest")
+        ZI_err = griddata(points, err_f, (XI, TI), method="nearest")
+
+    # Subplot 1: Exact and Predicted Surfaces
+    ax1 = fig.add_subplot(1, 2, 1, projection="3d")
+    surf_pred = ax1.plot_surface(
+        XI, TI, ZI_pred,
+        cmap="viridis",
+        alpha=0.85,
+        edgecolor="none",
+        antialiased=True,
+        label="Predicted $u_h$"
+    )
+    # Overlay exact solution wireframe
+    ax1.plot_wireframe(XI, TI, ZI_exact, color="black", rstride=8, cstride=8, alpha=0.4, linewidth=0.8)
+
+    ax1.set_xlabel("$x$", labelpad=8)
+    ax1.set_ylabel("$y$ (or $t$)", labelpad=8)
+    ax1.set_zlabel("$u(x, y)$", labelpad=8)
+    ax1.set_title("Numerical Solution $u_h$ (Surface) vs. Exact $u$ (Wireframe)", pad=14, fontweight="bold")
+    ax1.view_init(elev=28, azim=-125)
+    cbar1 = fig.colorbar(surf_pred, ax=ax1, shrink=0.55, aspect=12, pad=0.08)
+    cbar1.set_label("$u_h(x, y)$")
+
+    # Subplot 2: Pointwise Error Elevation
+    ax2 = fig.add_subplot(1, 2, 2, projection="3d")
+    surf_err = ax2.plot_surface(
+        XI, TI, ZI_err,
+        cmap="inferno",
+        alpha=0.9,
+        edgecolor="none",
+        antialiased=True
+    )
+    ax2.set_xlabel("$x$", labelpad=8)
+    ax2.set_ylabel("$y$ (or $t$)", labelpad=8)
+    ax2.set_zlabel("Error $|u - u_h|$", labelpad=8)
+    ax2.set_title("Pointwise Absolute Error $|u(x, y) - u_h(x, y)|$", pad=14, fontweight="bold")
+    ax2.view_init(elev=28, azim=-125)
+    cbar2 = fig.colorbar(surf_err, ax=ax2, shrink=0.55, aspect=12, pad=0.08)
+    cbar2.set_label("Absolute Error")
+
+    fig.suptitle(title, fontsize=14, fontweight="bold", y=1.03)
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    return save_path
+

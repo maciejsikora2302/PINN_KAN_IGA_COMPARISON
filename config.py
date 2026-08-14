@@ -81,10 +81,14 @@ class RunConfig(ProblemConfig, MethodConfig):
     def output_dir(self) -> str:
         if self.OUTPUT_DIR:
             return self.OUTPUT_DIR
-        return os.path.join("output", self.problem_id, self.METHOD_NAME)
+        base = "output"
+        if hasattr(self, "_config_path") and self._config_path and "training_config" in self._config_path and "test" in os.path.dirname(os.path.abspath(self._config_path)).split(os.sep):
+            base = os.path.join("output", "test_runs")
+        return os.path.join(base, self.problem_id, self.METHOD_NAME)
 
     def load_config(self, path: str) -> None:
         """Loads configuration from YAML with fallback to common.yaml."""
+        self._config_path = path
         # 1. Load common.yaml if available
         common_path = os.path.join(os.path.dirname(os.path.abspath(path)), "common.yaml")
         if not os.path.exists(common_path):

@@ -20,6 +20,7 @@ from src.visualization.run_visualizer import (
     plot_1d_slices,
     plot_2d_error,
     plot_2d_solution,
+    plot_3d_surface,
     plot_h1_convergence,
     plot_loss_curve,
 )
@@ -50,30 +51,34 @@ def _task_1d_slices(args):
     return plot_1d_slices(x, t, z_pred, z_exact, prob_name, save_path)
 
 
-def plot_single_run(output_dir: str, max_workers: int = 5) -> None:
+def _task_3d_surface(args):
+    x, t, z_pred, z_exact, title, save_path = args
+    return plot_3d_surface(x, t, z_pred, z_exact, title, save_path)
+
+
+def plot_single_run(output_dir: str, max_workers: int = 6) -> None:
     """
     Loads outcomes.npz and metadata.yaml from output_dir, computes exact solution,
-    and runs all 5 plot tasks in parallel using ProcessPoolExecutor.
+    and runs all 6 plot tasks in parallel using ProcessPoolExecutor.
     """
     output_dir = os.path.abspath(output_dir)
     outcomes_path = os.path.join(output_dir, "outcomes.npz")
     metadata_path = os.path.join(output_dir, "metadata.yaml")
 
     if not os.path.exists(outcomes_path):
-        raise FileNotFoundError(f"Missing outcomes file: {outcomes_path}")
+        raise FileNotFoundError(f"Missing outcomes.npz in {output_dir}")
 
-    # Load outcomes data
+    # Load outcomes
     data = np.load(outcomes_path, allow_pickle=True)
     x = data["x"]
     t = data["t"]
     z_pred = data["z_pred"]
+    loss_history = data.get("loss_history", np.array([]))
+    h1_error_history = data.get("h1_error_history", np.array([]))
+    h1_epoch_history = data.get("h1_epoch_history", None)
+    h1_time_history = data.get("h1_time_history", None)
 
-    loss_history = data["loss_history"] if "loss_history" in data else np.array([])
-    h1_error_history = data["h1_error_history"] if "h1_error_history" in data else np.array([])
-    h1_epoch_history = data["h1_epoch_history"] if "h1_epoch_history" in data else None
-    h1_time_history = data["h1_time_history"] if "h1_time_history" in data else None
-
-    # Load metadata / problem configuration
+    # Load metadata for problem info
     problem_name = "poisson_sine"
     epsilon = 0.01
     method_name = os.path.basename(output_dir)
@@ -90,7 +95,7 @@ def plot_single_run(output_dir: str, max_workers: int = 5) -> None:
     problem = get_problem(problem_name, epsilon=epsilon)
     z_exact = problem.exact_solution(x, t)
 
-    print(f"=== Generating 5 Diagnostic Plots for [{problem_name} / {method_name}] ===")
+    print(f"=== Generating 6 Diagnostic Plots for [{problem_name} / {method_name}] ===")
     print(f"  Target Output Dir: {output_dir}")
 
     # Plot paths
@@ -99,6 +104,7 @@ def plot_single_run(output_dir: str, max_workers: int = 5) -> None:
     sol_plot_path = os.path.join(output_dir, "prediction_contour.png")
     err_plot_path = os.path.join(output_dir, "error_contour.png")
     slice_plot_path = os.path.join(output_dir, "solution_slices.png")
+    surf_3d_plot_path = os.path.join(output_dir, "surface_3d.png")
 
     tasks = [
         (_task_loss_curve, (loss_history, loss_plot_path, f"Loss Curve - {method_name}")),
@@ -106,6 +112,7 @@ def plot_single_run(output_dir: str, max_workers: int = 5) -> None:
         (_task_2d_solution, (x, t, z_pred, f"Prediction $u_h(x, y)$ - {method_name}", sol_plot_path)),
         (_task_2d_error, (x, t, z_pred, z_exact, f"Pointwise Error - {method_name}", err_plot_path)),
         (_task_1d_slices, (x, t, z_pred, z_exact, problem_name, slice_plot_path)),
+        (_task_3d_surface, (x, t, z_pred, z_exact, f"3D Solution & Error - {method_name}", surf_3d_plot_path)),
     ]
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
@@ -126,7 +133,7 @@ def main():
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--output-dir", type=str, help="Path to run output directory containing outcomes.npz")
     group.add_argument("--config", type=str, help="Path to run configuration YAML file")
-    parser.add_argument("--workers", type=int, default=5, help="Number of concurrent worker processes")
+    parser.add_argument("--workers", type=int, default=6, help="Number of concurrent worker processes")
 
     args = parser.parse_args()
 
