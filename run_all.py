@@ -150,19 +150,13 @@ def main():
     gpu_configs = []
     cpu_configs = []
     affected_problem_dirs = set()
-
+    from config import RunConfig
     for c in configs:
         try:
-            with open(c, "r") as f:
-                d = yaml.safe_load(f) or {}
-            solv = d.get("SOLVER", "pinn").lower()
-            out_dir = d.get("output_dir", "")
-            if out_dir:
-                problem_dir = os.path.dirname(out_dir)
-                affected_problem_dirs.add(problem_dir)
-            else:
-                prob = d.get("PROBLEM_NAME", "poisson_sine")
-                affected_problem_dirs.add(os.path.join("output", prob))
+            cfg = RunConfig()
+            cfg.load_config(c)
+            solv = cfg.SOLVER.lower()
+            affected_problem_dirs.add(os.path.join("output", cfg.problem_id))
         except Exception:
             solv = "pinn"
 

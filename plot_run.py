@@ -133,14 +133,11 @@ def main():
     if args.output_dir:
         target_dir = args.output_dir
     else:
-        # Load output_dir from config file
-        with open(args.config, "r") as f:
-            cfg = yaml.safe_load(f)
-            target_dir = cfg.get("output_dir")
-            if not target_dir:
-                prob = cfg.get("PROBLEM_NAME", "poisson_sine")
-                meth = cfg.get("METHOD_NAME", "method")
-                target_dir = os.path.join("output", prob, meth)
+        # Load output_dir from config file via RunConfig
+        from config import RunConfig
+        cfg = RunConfig()
+        cfg.load_config(args.config)
+        target_dir = cfg.output_dir
 
     plot_single_run(target_dir, max_workers=args.workers)
 
